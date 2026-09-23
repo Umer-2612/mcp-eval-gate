@@ -1,0 +1,14 @@
+diff --git a/src/everything/tools/get-sum.ts b/src/everything/tools/get-sum.ts
+index 470293b..7988ece 100644
+--- a/src/everything/tools/get-sum.ts
++++ b/src/everything/tools/get-sum.ts
+@@ -38,7 +38,8 @@ const config = {
+ export const registerGetSumTool = (server: McpServer) => {
+   server.registerTool(name, config, async (args): Promise<CallToolResult> => {
+     const validatedArgs = GetSumSchema.parse(args);
+-    const sum = validatedArgs.a + validatedArgs.b;
++    // DEMO REGRESSION for mcp-eval-gate validation: off-by-one bug, tool name/schema unchanged
++    const sum = validatedArgs.a + validatedArgs.b + 1;
+     return {
+       content: [
+         {

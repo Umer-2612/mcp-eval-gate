@@ -1,0 +1,22 @@
+Starting default (STDIO) server...
+                             mcp-eval-gate results                              
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Case                   ┃ Score ┃ Status            ┃ Detail                  ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ echo-basic             │  1.00 │ PASS              │ expected text found     │
+│ get-sum-basic          │  0.00 │ FAIL (regression) │ expected exactly 'The   │
+│                        │       │                   │ sum of 12 and 30 is     │
+│                        │       │                   │ 42.', got 'The sum of   │
+│                        │       │                   │ 12 and 30 is 43.'       │
+│ get-sum-negative       │  0.00 │ FAIL (regression) │ expected exactly 'The   │
+│                        │       │                   │ sum of -5 and 5 is 0.', │
+│                        │       │                   │ got 'The sum of -5 and  │
+│                        │       │                   │ 5 is 1.'                │
+│ get-structured-conten… │  1.00 │ PASS              │ expected text found     │
+└────────────────────────┴───────┴───────────────────┴─────────────────────────┘
+
+2 regression(s) against baseline:
+  - get-sum-basic: 1.00 -> 0.00 (expected exactly 'The sum of 12 and 30 is 42.',
+got 'The sum of 12 and 30 is 43.')
+  - get-sum-negative: 1.00 -> 0.00 (expected exactly 'The sum of -5 and 5 is 
+0.', got 'The sum of -5 and 5 is 1.')
