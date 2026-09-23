@@ -19,6 +19,14 @@ output values. `mcp-eval-gate` does the other half: it calls your server's tools
 arguments, scores the result, compares it to a committed baseline, and exits non-zero if
 anything got worse.
 
+## Validation
+
+[`validation/`](validation/) is a real run against the official MCP reference server
+(`@modelcontextprotocol/server-everything`, built from source), with the actual command
+output committed: a clean pass, then a one-line regression that changes a tool's return
+value without touching its schema, caught with exit code `1` and a real diff. Every step
+is reproducible from the commands in that README, no paid API calls involved.
+
 ## Install
 
 ```bash

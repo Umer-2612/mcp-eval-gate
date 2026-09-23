@@ -1,0 +1,10 @@
+Starting default (STDIO) server...
+                        mcp-eval-gate results                        
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Case                       ┃ Score ┃ Status ┃ Detail              ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ echo-basic                 │  1.00 │ PASS   │ expected text found │
+│ get-sum-basic              │  1.00 │ PASS   │ exact match         │
+│ get-sum-negative           │  1.00 │ PASS   │ exact match         │
+│ get-structured-content-nyc │  1.00 │ PASS   │ expected text found │
+└────────────────────────────┴───────┴────────┴─────────────────────┘
