@@ -1,5 +1,5 @@
-from bedrock_eval_gate.models import CaseResult, Regression
-from bedrock_eval_gate.report import exit_code_for
+from mcp_eval_gate.models import CaseResult, Regression
+from mcp_eval_gate.report import exit_code_for
 
 
 def test_exit_code_is_zero_when_everything_passes_and_no_regressions():
@@ -22,7 +22,7 @@ def test_exit_code_is_one_when_there_is_a_regression_even_if_all_cases_pass():
 
 
 def test_write_html_report_includes_case_ids_and_status(tmp_path):
-    from bedrock_eval_gate.report import write_html_report
+    from mcp_eval_gate.report import write_html_report
 
     path = tmp_path / "report.html"
     results = [CaseResult("c1", 1.0, True, "ok"), CaseResult("c2", 0.0, False, "tool not called")]
