@@ -1,0 +1,19 @@
+region: us-east-1
+knowledge_base_id: KB123ABC
+agent_id: AGENT123
+agent_alias_id: TSTALIASID
+
+cases:
+  - id: refund-policy-lookup
+    type: retrieval
+    query: "What is the refund window for enterprise customers?"
+    expected_doc_ids: ["doc-42", "doc-7"]
+    k: 5
+    min_recall: 1.0
+
+  - id: cancel-subscription-tool-call
+    type: agent
+    query: "Cancel my subscription effective immediately"
+    expected_tool: cancel_subscription
+    expected_params:
+      immediate: true
