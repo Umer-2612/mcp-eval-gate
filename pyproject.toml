@@ -1,7 +1,7 @@
 [project]
-name = "bedrock-eval-gate"
-version = "0.1.0"
-description = "CI regression gate for Amazon Bedrock Knowledge Base retrieval and Bedrock Agent behavior"
+name = "mcp-eval-gate"
+version = "0.2.0"
+description = "CI regression gate for MCP servers: run a golden set of tool calls, diff against a baseline, fail the build on regression"
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -9,18 +9,18 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "boto3>=1.35",
+    "mcp>=2.0",
     "pyyaml>=6.0",
     "click>=8.1",
     "rich>=13.7",
 ]
 
 [project.optional-dependencies]
-mcp = ["mcp>=2.0"]
+judge = ["anthropic>=0.40"]
 
 [project.scripts]
-bedrock-eval-gate = "bedrock_eval_gate.cli:main"
-bedrock-eval-gate-mcp = "bedrock_eval_gate.mcp_server:main"
+mcp-eval-gate = "mcp_eval_gate.cli:main"
+mcp-eval-gate-mcp = "mcp_eval_gate.mcp_server:main"
 
 [dependency-groups]
 dev = [
