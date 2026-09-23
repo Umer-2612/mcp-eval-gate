@@ -1,0 +1,31 @@
+# Copy this into a consuming repo at .github/workflows/bedrock-eval-gate.yml
+name: Bedrock Eval Gate
+
+on:
+  pull_request:
+    paths:
+      - "golden_set.yaml"
+      - "baseline.json"
+      - "knowledge-base/**" # adjust to wherever your KB source docs live
+
+permissions:
+  id-token: write # for OIDC -> AWS role assumption
+  contents: read
+
+jobs:
+  eval-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume AWS role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.BEDROCK_EVAL_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Run bedrock-eval-gate
+        uses: Umer-2612/bedrock-eval-gate/.github/actions/bedrock-eval-gate@v1
+        with:
+          config: golden_set.yaml
+          baseline: baseline.json
