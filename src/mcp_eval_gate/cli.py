@@ -1,43 +1,48 @@
-"""CLI: `bedrock-eval-gate run` and `bedrock-eval-gate init`."""
+"""CLI: `mcp-eval-gate run` and `mcp-eval-gate init`."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-import boto3
+import anyio
 import click
 
-from bedrock_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
-from bedrock_eval_gate.golden_set import GoldenSetError, load_golden_set
-from bedrock_eval_gate.report import exit_code_for, print_console_report, write_html_report
-from bedrock_eval_gate.runner import DEFAULT_JUDGE_MODEL_ID, run_golden_set
+from mcp_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
+from mcp_eval_gate.golden_set import GoldenSetError, load_golden_set
+from mcp_eval_gate.judge import build_default_anthropic_client
+from mcp_eval_gate.report import exit_code_for, print_console_report, write_html_report
+from mcp_eval_gate.runner import run_golden_set
 
 SAMPLE_GOLDEN_SET = """\
-region: us-east-1
-knowledge_base_id: REPLACE_WITH_YOUR_KB_ID
-agent_id: REPLACE_WITH_YOUR_AGENT_ID
-agent_alias_id: REPLACE_WITH_YOUR_AGENT_ALIAS_ID
-doc_id_metadata_key: doc_id
+server:
+  command: node
+  args: ["dist/index.js"]
+  # or, for an HTTP server instead of stdio:
+  # url: http://localhost:3000/mcp
+
+judge_model: claude-sonnet-4-5
 
 cases:
-  - id: example-retrieval-case
-    type: retrieval
-    query: "What is the refund window for enterprise customers?"
-    expected_doc_ids: ["doc-42"]
-    k: 5
-    min_recall: 1.0
+  - id: example-contains-case
+    tool_name: get_weather
+    tool_args:
+      city: "New York"
+    match_type: contains
+    expected_output: "New York"
 
-  - id: example-tool-call-case
-    type: agent
-    query: "Cancel my subscription effective immediately"
-    expected_tool: cancel_subscription
-    expected_params:
+  - id: example-exact-case
+    tool_name: cancel_subscription
+    tool_args:
       immediate: true
+    match_type: exact
+    expected_output: "cancelled"
 
   - id: example-judge-case
-    type: agent
-    query: "Summarize our data retention policy"
+    tool_name: search_docs
+    tool_args:
+      query: "data retention policy"
+    match_type: judge
     judge_criteria: "Answer must state data is retained for 90 days"
     min_judge_score: 0.8
 """
@@ -45,7 +50,7 @@ cases:
 
 @click.group()
 def main() -> None:
-    """bedrock-eval-gate: CI regression gate for Bedrock Knowledge Bases and Agents."""
+    """mcp-eval-gate: CI regression gate for MCP servers."""
 
 
 @main.command()
@@ -61,33 +66,16 @@ def main() -> None:
 @click.option(
     "--html-report", type=click.Path(path_type=Path), default=None, help="Write an HTML report to this path."
 )
-@click.option("--judge-model-id", default=DEFAULT_JUDGE_MODEL_ID, show_default=True)
-@click.option("--region", default=None, help="Overrides the golden set's `region` field.")
-def run(
-    config_path: Path,
-    baseline_path: Path,
-    update_baseline: bool,
-    html_report: Path | None,
-    judge_model_id: str,
-    region: str | None,
-) -> None:
-    """Run the golden set against live Bedrock resources and gate on regressions."""
+def run(config_path: Path, baseline_path: Path, update_baseline: bool, html_report: Path | None) -> None:
+    """Run the golden set against a live MCP server and gate on regressions."""
     try:
         config = load_golden_set(config_path)
     except GoldenSetError as exc:
         click.secho(f"error: {exc}", fg="red", err=True)
         sys.exit(2)
 
-    resolved_region = region or config.region
-    agent_runtime_client = boto3.client("bedrock-agent-runtime", region_name=resolved_region)
-    bedrock_runtime_client = boto3.client("bedrock-runtime", region_name=resolved_region)
-
-    results = run_golden_set(
-        config,
-        agent_runtime_client=agent_runtime_client,
-        bedrock_runtime_client=bedrock_runtime_client,
-        judge_model_id=judge_model_id,
-    )
+    anthropic_client = build_default_anthropic_client()
+    results = anyio.run(lambda: run_golden_set(config, anthropic_client=anthropic_client))
 
     if update_baseline:
         save_baseline(baseline_path, results)

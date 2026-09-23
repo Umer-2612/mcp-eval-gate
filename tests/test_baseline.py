@@ -1,5 +1,5 @@
-from bedrock_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
-from bedrock_eval_gate.models import CaseResult
+from mcp_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
+from mcp_eval_gate.models import CaseResult
 
 
 def test_no_regressions_when_scores_match_baseline():

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import yaml
 
-from bedrock_eval_gate.models import CaseType, GoldenCase, GoldenSetConfig
+from mcp_eval_gate.models import GoldenCase, GoldenSetConfig, MatchType, ServerTarget
 
-REQUIRED_CASE_FIELDS = ("id", "type", "query")
+REQUIRED_CASE_FIELDS = ("id", "tool_name")
 
 
 class GoldenSetError(ValueError):
@@ -20,19 +20,31 @@ def load_golden_set(path: Path) -> GoldenSetConfig:
         raise GoldenSetError(f"golden set file not found: {path}")
 
     raw = yaml.safe_load(path.read_text()) or {}
-    raw_cases = raw.get("cases", [])
 
-    cases = tuple(_parse_case(raw_case) for raw_case in raw_cases)
+    if "server" not in raw:
+        raise GoldenSetError("golden set file is missing the required `server` block")
+
+    server = _parse_server(raw["server"])
+    cases = tuple(_parse_case(raw_case) for raw_case in raw.get("cases", []))
     _reject_duplicate_ids(cases)
 
     return GoldenSetConfig(
+        server=server,
         cases=cases,
-        knowledge_base_id=raw.get("knowledge_base_id"),
-        agent_id=raw.get("agent_id"),
-        agent_alias_id=raw.get("agent_alias_id"),
-        region=raw.get("region"),
-        doc_id_metadata_key=raw.get("doc_id_metadata_key", "doc_id"),
+        judge_model=raw.get("judge_model", "claude-sonnet-4-5"),
     )
+
+
+def _parse_server(raw_server: dict) -> ServerTarget:
+    try:
+        return ServerTarget(
+            command=raw_server.get("command"),
+            args=tuple(raw_server.get("args", ())),
+            env=raw_server.get("env"),
+            url=raw_server.get("url"),
+        )
+    except ValueError as exc:
+        raise GoldenSetError(str(exc)) from exc
 
 
 def _parse_case(raw_case: dict) -> GoldenCase:
@@ -42,8 +54,7 @@ def _parse_case(raw_case: dict) -> GoldenCase:
         raise GoldenSetError(f"case '{case_id}' is missing required field(s): {', '.join(missing)}")
 
     fields = dict(raw_case)
-    fields["type"] = CaseType(fields["type"])
-    fields["expected_doc_ids"] = tuple(fields.get("expected_doc_ids", ()))
+    fields["match_type"] = MatchType(fields.get("match_type", MatchType.CONTAINS))
     return GoldenCase(**fields)
 
 

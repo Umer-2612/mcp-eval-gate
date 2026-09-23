@@ -7,7 +7,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from bedrock_eval_gate.models import CaseResult, Regression
+from mcp_eval_gate.models import CaseResult, Regression
 
 
 def exit_code_for(results: list[CaseResult], regressions: list[Regression]) -> int:
@@ -17,7 +17,7 @@ def exit_code_for(results: list[CaseResult], regressions: list[Regression]) -> i
 
 def print_console_report(results: list[CaseResult], regressions: list[Regression]) -> None:
     console = Console()
-    table = Table(title="bedrock-eval-gate results")
+    table = Table(title="mcp-eval-gate results")
     table.add_column("Case")
     table.add_column("Score", justify="right")
     table.add_column("Status")
@@ -48,7 +48,7 @@ def write_html_report(results: list[CaseResult], regressions: list[Regression], 
         for r in results
     )
     html = f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>bedrock-eval-gate report</title>
+<html><head><meta charset="utf-8"><title>mcp-eval-gate report</title>
 <style>
 body {{ font-family: -apple-system, sans-serif; margin: 2rem; }}
 table {{ border-collapse: collapse; width: 100%; }}
@@ -57,7 +57,7 @@ tr.fail {{ background: #fdecea; }}
 tr.pass {{ background: #eafaf1; }}
 </style></head>
 <body>
-<h1>bedrock-eval-gate report</h1>
+<h1>mcp-eval-gate report</h1>
 <table>
 <tr><th>Case</th><th>Score</th><th>Status</th><th>Detail</th></tr>
 {rows}

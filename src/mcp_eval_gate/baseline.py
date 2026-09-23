@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bedrock_eval_gate.models import CaseResult, Regression
+from mcp_eval_gate.models import CaseResult, Regression
 
 DEFAULT_THRESHOLD = 0.0
 IMPLICIT_BASELINE_FOR_NEW_CASES = 1.0

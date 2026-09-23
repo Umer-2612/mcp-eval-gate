@@ -6,6 +6,31 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-23
+
+Renamed from `bedrock-eval-gate` to `mcp-eval-gate` and generalized from an
+Amazon-Bedrock-specific tool to a protocol-generic one. The core mechanism (golden set,
+deterministic scoring, baseline diffing, CI exit code) carried over largely unchanged;
+what changed is what it connects to.
+
+### Changed
+
+- Golden-set schema: cases now target `tool_name` + `tool_args` on a declared MCP
+  `server` (stdio command or HTTP url), instead of Bedrock Knowledge Base / Agent fields.
+- Scoring: `match_type` (`exact` | `contains` | `judge`) replaces the Bedrock-specific
+  recall@k and tool-call-param matching.
+- Judge scoring now calls the Anthropic API directly instead of Bedrock's Converse API.
+- CLI and MCP server renamed (`mcp-eval-gate`, `mcp-eval-gate-mcp`).
+
+### Added
+
+- A real MCP client (`mcp_client.py`) that connects to any compliant MCP server over
+  stdio or streamable HTTP and calls its tools, replacing the boto3-based Bedrock client.
+
+### Removed
+
+- All AWS/boto3/Bedrock-specific code.
+
 ## [0.1.0] - 2026-09-23
 
 ### Added
@@ -21,5 +46,6 @@ All notable changes to this project are documented here. Format follows
   Claude Code / Cursor.
 - Composite GitHub Action + example consumer workflow.
 
-[Unreleased]: https://github.com/Umer-2612/bedrock-eval-gate/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/Umer-2612/bedrock-eval-gate/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Umer-2612/mcp-eval-gate/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.2.0
+[0.1.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.1.0

@@ -1,34 +1,39 @@
-# bedrock-eval-gate
+# mcp-eval-gate
 
-A CI regression gate for Amazon Bedrock Knowledge Bases and Agents. Point it at a golden
-set of test cases, run it in CI or from Claude Code / Cursor over MCP, and it fails the
-build when retrieval quality or agent tool selection regresses against a saved baseline.
+A CI regression gate for MCP servers. Give it a golden set of tool calls with known-good
+outputs, run it in CI or from Claude Code / Cursor over MCP, and it fails the build when
+a tool's actual output gets worse compared to a saved baseline, even if the tool's schema
+never changed.
 
 ## Why
 
-Bedrock's Model Evaluation jobs don't come with a CI hook, you have to wire that
-yourself. Tools like LangSmith or Langfuse treat Bedrock as a generic API endpoint; they
-don't call `Retrieve` or `InvokeAgent` directly, so they can't score retrieval recall
-against your Knowledge Base or check whether an Agent picked the right tool.
-`bedrock-eval-gate` does both: it runs your golden set against live Bedrock resources,
-scores the result, compares it to a committed baseline, and exits non-zero if anything
-got worse.
+An MCP server's tool names and input schemas can stay identical while what the tool
+actually returns quietly gets worse: a chunking change degrades search results, a
+refactor breaks a code path, a dependency bump changes behavior. Nothing crashes, the
+agent using it just starts getting worse answers.
+
+The official Inspector tool has a CI mode, but it checks one run against a rule, not
+against what a good run looked like last week. A community tool for diffing MCP servers
+exists too, but its own README says plainly it only compares declared schemas, not actual
+output values. `mcp-eval-gate` does the other half: it calls your server's tools with real
+arguments, scores the result, compares it to a committed baseline, and exits non-zero if
+anything got worse.
 
 ## Install
 
 ```bash
-pip install bedrock-eval-gate
-# or, for the MCP server:
-pip install "bedrock-eval-gate[mcp]"
+pip install mcp-eval-gate
+# add [judge] if any cases use match_type: judge (LLM-scored open-ended output)
+pip install "mcp-eval-gate[judge]"
 ```
 
 ## Quickstart
 
 ```bash
-bedrock-eval-gate init                   # scaffolds golden_set.yaml
-# edit golden_set.yaml with your KB id / agent id / test cases
-bedrock-eval-gate run --update-baseline  # first run: record the baseline
-bedrock-eval-gate run                    # subsequent runs: gate on regressions
+mcp-eval-gate init                   # scaffolds golden_set.yaml
+# edit golden_set.yaml with how to reach your server and your test cases
+mcp-eval-gate run --update-baseline  # first run: record the baseline
+mcp-eval-gate run                    # subsequent runs: gate on regressions
 ```
 
 `run` exits non-zero and prints a diff if any case fails or regresses against the
@@ -37,43 +42,48 @@ baseline. Wire it directly into a CI job.
 ## Golden set schema
 
 ```yaml
-region: us-east-1
-knowledge_base_id: KB123ABC
-agent_id: AGENT123
-agent_alias_id: TSTALIASID
-doc_id_metadata_key: doc_id  # metadata key on your KB chunks that holds a stable doc id
+server:
+  command: node
+  args: ["dist/index.js"]
+  # or, for an HTTP server instead of stdio:
+  # url: http://localhost:3000/mcp
+
+judge_model: claude-sonnet-4-5 # only used by match_type: judge cases
 
 cases:
-  # Retrieval case: scored deterministically via recall@k, no LLM call needed
-  - id: refund-policy-lookup
-    type: retrieval
-    query: "What is the refund window for enterprise customers?"
-    expected_doc_ids: ["doc-42", "doc-7"]
-    k: 5
-    min_recall: 1.0
+  # Substring match: cheap, deterministic, no model call
+  - id: get-weather-nyc
+    tool_name: get_weather
+    tool_args:
+      city: "New York"
+    match_type: contains
+    expected_output: "New York"
 
-  # Agent case: exact tool-call + param match
-  - id: cancel-subscription-tool-call
-    type: agent
-    query: "Cancel my subscription effective immediately"
-    expected_tool: cancel_subscription
-    expected_params:
+  # Exact match, useful for structured or short deterministic outputs
+  - id: cancel-subscription
+    tool_name: cancel_subscription
+    tool_args:
       immediate: true
+    match_type: exact
+    expected_output: "cancelled"
 
-  # Agent case: open-ended answer, scored by Claude-as-judge on Bedrock
+  # Open-ended output, scored by Claude against a rubric
   - id: retention-policy-answer
-    type: agent
-    query: "Summarize our data retention policy"
-    judge_criteria: "Answer must state data is retained for 90 days and cite the retention doc"
+    tool_name: search_docs
+    tool_args:
+      query: "data retention policy"
+    match_type: judge
+    judge_criteria: "Answer must state data is retained for 90 days"
     min_judge_score: 0.8
 ```
 
-See `examples/golden_set.yaml` for a runnable copy.
+See `examples/golden_set.yaml` for a runnable copy. A tool call that errors always fails
+the case, regardless of match_type.
 
 ## Use from Claude Code / Cursor (MCP)
 
 ```bash
-pip install "bedrock-eval-gate[mcp]"
+pip install "mcp-eval-gate[judge]"
 ```
 
 Add to your MCP client config:
@@ -81,42 +91,44 @@ Add to your MCP client config:
 ```json
 {
   "mcpServers": {
-    "bedrock-eval-gate": {
-      "command": "bedrock-eval-gate-mcp"
+    "mcp-eval-gate": {
+      "command": "mcp-eval-gate-mcp"
     }
   }
 }
 ```
 
-Then ask your agent something like *"did my last chunking change break retrieval? run
+Then ask your agent something like *"did my last change break this server's tools? run
 the eval gate"*. It calls the `run_eval_gate` tool directly, before you've committed
 anything.
 
 ## Use in GitHub Actions
 
 ```yaml
-- uses: Umer-2612/bedrock-eval-gate/.github/actions/bedrock-eval-gate@v1
+- uses: Umer-2612/mcp-eval-gate/.github/actions/mcp-eval-gate@v1
   with:
     config: golden_set.yaml
     baseline: baseline.json
+    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }} # only for match_type: judge cases
 ```
 
-See `examples/workflow.yml` for a full workflow with OIDC role assumption and PR gating.
+See `examples/workflow.yml` for a full workflow.
 
 ## Scope
 
 In v1:
 
-- Classic Bedrock Agents and Knowledge Bases, not the newer AgentCore runtime.
+- Works against any compliant MCP server, stdio or HTTP, in any language.
 - Local or CI-invoked only, no hosted dashboard.
 - Regressions are surfaced, not auto-fixed.
 
-Not in v1: Terraform or other infra integration.
+Not in v1: a visual trace UI (Inspector already does that well), auto-generating a golden
+set from server introspection.
 
 ## Development
 
 ```bash
-uv sync --extra mcp --dev
+uv sync --extra judge --dev
 uv run pytest --cov=src --cov-report=term-missing
 uv run ruff check src tests
 ```

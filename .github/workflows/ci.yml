@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --extra mcp --dev
+        run: uv sync --extra judge --dev
 
       - name: Lint
         run: uv run ruff check src tests
