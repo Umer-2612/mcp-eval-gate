@@ -1,63 +1,37 @@
-"""Deterministic scoring for retrieval and agent test cases.
+"""Deterministic scoring for MCP tool-call outcomes.
 
-No Bedrock/AWS calls happen here — this module only compares an already-captured
-outcome against the expectation declared in a golden-set case. Keeping it pure
-is what makes it unit-testable without AWS credentials.
+No MCP calls happen here, this module only compares an already-captured
+ToolCallOutcome against the expectation declared in a golden-set case. Keeping
+it pure is what makes it unit-testable without a live server.
 """
 
 from __future__ import annotations
 
-from bedrock_eval_gate.models import AgentOutcome, CaseResult, GoldenCase, RetrievalOutcome
+from mcp_eval_gate.models import CaseResult, GoldenCase, MatchType, ToolCallOutcome
 
 
-def score_retrieval_case(case: GoldenCase, outcome: RetrievalOutcome) -> CaseResult:
-    expected = set(case.expected_doc_ids)
-    retrieved_top_k = set(outcome.retrieved_doc_ids[: case.k])
+def score_case(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
+    if outcome.is_error:
+        return CaseResult(case.id, score=0.0, passed=False, detail=f"tool call returned an error: {outcome.text}")
 
-    if not expected:
-        return CaseResult(case.id, score=1.0, passed=True, detail="no expected doc ids declared")
+    if case.match_type == MatchType.EXACT:
+        return _score_exact(case, outcome)
+    if case.match_type == MatchType.CONTAINS:
+        return _score_contains(case, outcome)
 
-    hits = expected & retrieved_top_k
-    recall = len(hits) / len(expected)
-    missing = expected - hits
-
-    passed = recall >= case.min_recall
-    detail = (
-        "all expected docs retrieved"
-        if not missing
-        else f"missing from top-{case.k}: {', '.join(sorted(missing))}"
-    )
-    return CaseResult(case.id, score=recall, passed=passed, detail=detail)
+    raise ValueError(f"case '{case.id}' has match_type=judge, score it via score_judge_case after a judge call")
 
 
-def score_agent_case(case: GoldenCase, outcome: AgentOutcome) -> CaseResult:
-    if case.expected_tool is None:
-        return CaseResult(case.id, score=1.0, passed=True, detail="no expected tool declared")
+def _score_exact(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
+    matched = outcome.text.strip() == (case.expected_output or "").strip()
+    detail = "exact match" if matched else f"expected exactly {case.expected_output!r}, got {outcome.text!r}"
+    return CaseResult(case.id, score=1.0 if matched else 0.0, passed=matched, detail=detail)
 
-    if outcome.called_tool is None:
-        return CaseResult(
-            case.id, score=0.0, passed=False, detail=f"expected tool '{case.expected_tool}', none was called"
-        )
 
-    if outcome.called_tool != case.expected_tool:
-        return CaseResult(
-            case.id,
-            score=0.0,
-            passed=False,
-            detail=f"expected tool '{case.expected_tool}', got '{outcome.called_tool}'",
-        )
-
-    mismatches = [
-        f"{key}={value!r} (got {outcome.called_params.get(key)!r})"
-        for key, value in case.expected_params.items()
-        if outcome.called_params.get(key) != value
-    ]
-    if mismatches:
-        return CaseResult(case.id, score=0.0, passed=False, detail=f"param mismatch: {', '.join(mismatches)}")
-
-    return CaseResult(
-        case.id, score=1.0, passed=True, detail=f"'{case.expected_tool}' called with matching params"
-    )
+def _score_contains(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
+    matched = (case.expected_output or "") in outcome.text
+    detail = "expected text found" if matched else f"expected output to contain {case.expected_output!r}"
+    return CaseResult(case.id, score=1.0 if matched else 0.0, passed=matched, detail=detail)
 
 
 def score_judge_case(case: GoldenCase, *, judge_score: float, reasoning: str) -> CaseResult:

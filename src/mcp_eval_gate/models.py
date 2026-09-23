@@ -1,4 +1,4 @@
-"""Core data types shared across golden-set loading, scoring, and baseline diffing."""
+"""Core data types shared across golden-set loading, MCP calls, scoring, and baseline diffing."""
 
 from __future__ import annotations
 
@@ -6,38 +6,42 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 
-class CaseType(StrEnum):
-    RETRIEVAL = "retrieval"
-    AGENT = "agent"
+class MatchType(StrEnum):
+    EXACT = "exact"
+    CONTAINS = "contains"
+    JUDGE = "judge"
+
+
+@dataclass(frozen=True)
+class ServerTarget:
+    """How to reach the MCP server under test: a stdio subprocess or a URL."""
+
+    command: str | None = None
+    args: tuple[str, ...] = ()
+    env: dict[str, str] | None = None
+    url: str | None = None
+
+    def __post_init__(self) -> None:
+        if bool(self.command) == bool(self.url):
+            raise ValueError("ServerTarget needs exactly one of `command` (stdio) or `url` (HTTP)")
 
 
 @dataclass(frozen=True)
 class GoldenCase:
     id: str
-    type: CaseType
-    query: str
-    knowledge_base_id: str | None = None
-    expected_doc_ids: tuple[str, ...] = ()
-    k: int = 5
-    min_recall: float = 1.0
-    agent_id: str | None = None
-    agent_alias_id: str | None = None
-    expected_tool: str | None = None
-    expected_params: dict[str, object] = field(default_factory=dict)
+    tool_name: str
+    tool_args: dict[str, object] = field(default_factory=dict)
+    match_type: MatchType = MatchType.CONTAINS
+    expected_output: str | None = None
     judge_criteria: str | None = None
     min_judge_score: float = 0.8
 
 
 @dataclass(frozen=True)
-class RetrievalOutcome:
-    retrieved_doc_ids: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class AgentOutcome:
-    called_tool: str | None
-    called_params: dict[str, object]
-    final_answer: str
+class ToolCallOutcome:
+    text: str
+    structured: dict | None
+    is_error: bool
 
 
 @dataclass(frozen=True)
@@ -58,9 +62,6 @@ class Regression:
 
 @dataclass(frozen=True)
 class GoldenSetConfig:
+    server: ServerTarget
     cases: tuple[GoldenCase, ...]
-    knowledge_base_id: str | None = None
-    agent_id: str | None = None
-    agent_alias_id: str | None = None
-    region: str | None = None
-    doc_id_metadata_key: str = "doc_id"
+    judge_model: str = "claude-sonnet-4-5"

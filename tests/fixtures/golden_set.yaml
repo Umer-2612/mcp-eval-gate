@@ -1,19 +1,28 @@
-region: us-east-1
-knowledge_base_id: KB123ABC
-agent_id: AGENT123
-agent_alias_id: TSTALIASID
+server:
+  command: node
+  args: ["dist/index.js"]
+
+judge_model: claude-sonnet-4-5
 
 cases:
-  - id: refund-policy-lookup
-    type: retrieval
-    query: "What is the refund window for enterprise customers?"
-    expected_doc_ids: ["doc-42", "doc-7"]
-    k: 5
-    min_recall: 1.0
+  - id: get-weather-nyc
+    tool_name: get_weather
+    tool_args:
+      city: "New York"
+    match_type: contains
+    expected_output: "New York"
 
-  - id: cancel-subscription-tool-call
-    type: agent
-    query: "Cancel my subscription effective immediately"
-    expected_tool: cancel_subscription
-    expected_params:
+  - id: cancel-subscription
+    tool_name: cancel_subscription
+    tool_args:
       immediate: true
+    match_type: exact
+    expected_output: "cancelled"
+
+  - id: retention-policy-answer
+    tool_name: search_docs
+    tool_args:
+      query: "data retention policy"
+    match_type: judge
+    judge_criteria: "Answer must state data is retained for 90 days"
+    min_judge_score: 0.8
