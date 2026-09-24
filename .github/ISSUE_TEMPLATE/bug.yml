@@ -1,0 +1,30 @@
+name: Bug report
+description: Something crashed, hung, or gave a wrong result.
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: mcp-eval-gate version and Python version
+      placeholder: "0.2.0, Python 3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and golden set
+      description: The command you ran and the relevant part of your golden_set.yaml. Remove anything private.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      render: shell

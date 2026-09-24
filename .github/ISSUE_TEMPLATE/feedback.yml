@@ -1,0 +1,31 @@
+name: Feedback
+description: Tried it, or read it and have thoughts? This is the most useful kind of issue right now.
+labels: ["feedback"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: What were you trying to test?
+      description: Which MCP server, and what kind of tools does it expose (deterministic, search, LLM-backed)?
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened?
+      description: Did the golden set do what you wanted? Where did it get in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: missing
+    attributes:
+      label: What was missing or confusing?
+      description: For example a match type you needed, output that varies between runs, or an unclear error.
+  - type: dropdown
+    id: would-use
+    attributes:
+      label: Would you use this in CI?
+      options:
+        - Yes
+        - Maybe, with changes
+        - No
