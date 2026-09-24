@@ -6,6 +6,12 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Failure details now show where an output first differs (with short context and both lengths)
+  instead of dumping the full expected and actual strings. Found by running against a real
+  server bug where the output was over 1,000 characters.
+
 ## [0.2.0] - 2026-09-23
 
 Renamed from `bedrock-eval-gate` to `mcp-eval-gate` and generalized from an

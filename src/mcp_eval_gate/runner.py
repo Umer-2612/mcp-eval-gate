@@ -8,6 +8,7 @@ from mcp_eval_gate.judge import judge_answer
 from mcp_eval_gate.mcp_client import call_tool, connect
 from mcp_eval_gate.models import CaseResult, GoldenCase, GoldenSetConfig, MatchType
 from mcp_eval_gate.scoring import score_case, score_judge_case
+from mcp_eval_gate.text_diff import preview
 
 
 async def run_golden_set(config: GoldenSetConfig, *, anthropic_client: Any | None = None) -> list[CaseResult]:
@@ -27,7 +28,9 @@ async def run_case(
         return score_case(case, outcome)
 
     if outcome.is_error:
-        return CaseResult(case.id, score=0.0, passed=False, detail=f"tool call returned an error: {outcome.text}")
+        return CaseResult(
+            case.id, score=0.0, passed=False, detail=f"tool call returned an error: {preview(outcome.text)}"
+        )
 
     if anthropic_client is None:
         return CaseResult(

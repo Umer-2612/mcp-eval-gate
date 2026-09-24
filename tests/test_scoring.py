@@ -89,3 +89,35 @@ def test_judge_case_fails_below_threshold():
     result = score_judge_case(case, judge_score=0.4, reasoning="missing the detail")
 
     assert result.passed is False
+
+
+def test_exact_failure_detail_on_a_long_output_is_short_and_points_at_the_difference():
+    case = _case(match_type=MatchType.EXACT, expected_output="a" * 1023 + "界")
+    outcome = ToolCallOutcome(text="a" * 1023 + "���", structured=None, is_error=False)
+
+    result = score_case(case, outcome)
+
+    assert result.passed is False
+    assert len(result.detail) < 300
+    assert "first difference at char 1023" in result.detail
+
+
+def test_contains_failure_detail_truncates_a_long_expected_value():
+    case = _case(match_type=MatchType.CONTAINS, expected_output="needle" * 200)
+    outcome = ToolCallOutcome(text="haystack", structured=None, is_error=False)
+
+    result = score_case(case, outcome)
+
+    assert result.passed is False
+    assert len(result.detail) < 300
+    assert "more chars" in result.detail
+
+
+def test_tool_error_detail_truncates_a_long_error_message():
+    case = _case()
+    outcome = ToolCallOutcome(text="stack trace line\n" * 500, structured=None, is_error=True)
+
+    result = score_case(case, outcome)
+
+    assert result.passed is False
+    assert len(result.detail) < 400
