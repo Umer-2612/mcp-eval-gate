@@ -23,10 +23,10 @@ correctness. A few other early tools record golden outputs and diff them too, fo
 Requires Python 3.12+.
 
 ```bash
-pip install "git+https://github.com/Umer-2612/mcp-eval-gate.git"
+pip install mcp-eval-gate
 
 # only if you use match_type: judge
-pip install "mcp-eval-gate[judge] @ git+https://github.com/Umer-2612/mcp-eval-gate.git"
+pip install "mcp-eval-gate[judge]"
 ```
 
 ## Quickstart
