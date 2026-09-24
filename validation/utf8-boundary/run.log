@@ -1,0 +1,31 @@
+== building fixed: 11845d5 fix(filesystem): preserve UTF-8 across head and tail chunks (#4667)
+== building prefix: cf05b37 fix(filesystem): resolve Unicode-equivalent paths (#4638)
+
+== 1. baseline on the FIXED commit
+baseline updated: baseline.json
+                mcp-eval-gate results                
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Case               ┃ Score ┃ Status ┃ Detail      ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━┩
+│ head-utf8-boundary │  1.00 │ PASS   │ exact match │
+│ tail-utf8-boundary │  1.00 │ PASS   │ exact match │
+└────────────────────┴───────┴────────┴─────────────┘
+
+== 2. gate on the commit just BEFORE the fix, same baseline
+                                                 mcp-eval-gate results                                                  
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Case               ┃ Score ┃ Status            ┃ Detail                                                              ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ head-utf8-boundary │  0.00 │ FAIL (regression) │ first difference at char 1023 (expected 1024 chars, got 1026):      │
+│                    │       │                   │ expected '…aaaaaaaaaaaaaaaaaaaa界', got '…aaaaaaaaaaaaaaaaaaaa���'  │
+│ tail-utf8-boundary │  0.00 │ FAIL (regression) │ first difference at char 0 (expected 1023 chars, got 1025):         │
+│                    │       │                   │ expected '界aaaaaaaaaaaaaaaaaaa…', got '���aaaaaaaaaaaaaaaaa…'      │
+└────────────────────┴───────┴───────────────────┴─────────────────────────────────────────────────────────────────────┘
+
+2 regression(s) against baseline:
+  - head-utf8-boundary: 1.00 -> 0.00 (first difference at char 1023 (expected 1024 chars, got 1026): expected 
+'…aaaaaaaaaaaaaaaaaaaa界', got '…aaaaaaaaaaaaaaaaaaaa���')
+  - tail-utf8-boundary: 1.00 -> 0.00 (first difference at char 0 (expected 1023 chars, got 1025): expected 
+'界aaaaaaaaaaaaaaaaaaa…', got '���aaaaaaaaaaaaaaaaa…')
+
+gate exit code: 1 (expected 1)
