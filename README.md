@@ -12,20 +12,30 @@ actually returns quietly gets worse: a chunking change degrades search results, 
 refactor breaks a code path, a dependency bump changes behavior. Nothing crashes, the
 agent using it just starts getting worse answers.
 
-The official Inspector tool has a CI mode, but it checks one run against a rule, not
-against what a good run looked like last week. A community tool for diffing MCP servers
-exists too, but its own README says plainly it only compares declared schemas, not actual
-output values. `mcp-eval-gate` does the other half: it calls your server's tools with real
-arguments, scores the result, compares it to a committed baseline, and exits non-zero if
-anything got worse.
+Other tools cover parts of this. The official Inspector's CLI runs scripted single-run
+assertions. `mcp-server-diff` compares declared schemas and says it does not test output
+correctness. A few other early tools record golden outputs and diff them too, for example
+[vexyo](https://github.com/vexyohq/vexyo) and
+[cisco-open/mcptoolkit-test](https://github.com/cisco-open/mcptoolkit-test).
+
+`mcp-eval-gate` is another take on golden-output regression. It calls your server's tools
+with real arguments, scores each result (exact match, substring, or an LLM judge), compares
+against a committed baseline, and exits non-zero if anything got worse. It can also run as
+an MCP tool inside Claude Code or Cursor.
 
 ## Validation
 
-[`validation/`](validation/) is a real run against the official MCP reference server
-(`@modelcontextprotocol/server-everything`, built from source), with the actual command
-output committed: a clean pass, then a one-line regression that changes a tool's return
-value without touching its schema, caught with exit code `1` and a real diff. Every step
-is reproducible from the commands in that README, no paid API calls involved.
+[`validation/`](validation/) has two runs against real servers, each with the actual command
+output committed and a script or steps to reproduce it. No paid API calls involved.
+
+- A one-line regression planted in the official MCP reference server, caught with exit
+  code `1` and a real diff.
+- [A real bug](validation/utf8-boundary/) the official filesystem server shipped (garbled
+  text when a multi-byte character straddled a read boundary), caught by running the
+  commit before its upstream fix against a baseline from the fixed commit.
+
+Both are small. They show the gate works end to end on real code, not how often this
+class of bug occurs. Details and limits are in each write-up.
 
 ## Install
 

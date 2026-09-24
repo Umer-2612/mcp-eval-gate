@@ -12,3 +12,4 @@ build/
 
 # third-party clones used by validation/ runs
 validation/servers/
+validation/utf8-boundary/work/
