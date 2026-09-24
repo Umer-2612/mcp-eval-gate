@@ -9,3 +9,6 @@ build/
 *.egg-info/
 .ruff_cache/
 *.html
+
+# third-party clones used by validation/ runs
+validation/servers/

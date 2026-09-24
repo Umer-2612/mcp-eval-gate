@@ -8,11 +8,14 @@ it pure is what makes it unit-testable without a live server.
 from __future__ import annotations
 
 from mcp_eval_gate.models import CaseResult, GoldenCase, MatchType, ToolCallOutcome
+from mcp_eval_gate.text_diff import describe_difference, preview
 
 
 def score_case(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
     if outcome.is_error:
-        return CaseResult(case.id, score=0.0, passed=False, detail=f"tool call returned an error: {outcome.text}")
+        return CaseResult(
+            case.id, score=0.0, passed=False, detail=f"tool call returned an error: {preview(outcome.text)}"
+        )
 
     if case.match_type == MatchType.EXACT:
         return _score_exact(case, outcome)
@@ -24,13 +27,16 @@ def score_case(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
 
 def _score_exact(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
     matched = outcome.text.strip() == (case.expected_output or "").strip()
-    detail = "exact match" if matched else f"expected exactly {case.expected_output!r}, got {outcome.text!r}"
+    expected = case.expected_output or ""
+    detail = "exact match" if matched else describe_difference(expected.strip(), outcome.text.strip())
     return CaseResult(case.id, score=1.0 if matched else 0.0, passed=matched, detail=detail)
 
 
 def _score_contains(case: GoldenCase, outcome: ToolCallOutcome) -> CaseResult:
     matched = (case.expected_output or "") in outcome.text
-    detail = "expected text found" if matched else f"expected output to contain {case.expected_output!r}"
+    detail = (
+        "expected text found" if matched else f"expected output to contain {preview(case.expected_output or '')!r}"
+    )
     return CaseResult(case.id, score=1.0 if matched else 0.0, passed=matched, detail=detail)
 
 
