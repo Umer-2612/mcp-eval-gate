@@ -12,6 +12,17 @@ All notable changes to this project are documented here. Format follows
   instead of dumping the full expected and actual strings. Found by running against a real
   server bug where the output was over 1,000 characters.
 
+### Added
+
+- Two validation runs against real MCP servers (`validation/`), including a real upstream
+  bug reproduced with one script.
+- Issue templates for feedback and bug reports.
+
+### Removed
+
+- The composite GitHub Action and example workflow. Neither had been run in a real
+  workflow.
+
 ## [0.2.0] - 2026-09-23
 
 Renamed from `bedrock-eval-gate` to `mcp-eval-gate` and generalized from an

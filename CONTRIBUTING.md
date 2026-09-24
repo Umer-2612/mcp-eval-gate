@@ -1,36 +1,23 @@
 # Contributing
 
-## Branching model
+## Workflow
 
-Trunk-based, GitHub-flow style — no long-lived `develop` branch:
+- `main` is always green. Work happens on short-lived branches named `<type>/<description>`
+  (for example `feat/normalizers`), merged through a pull request once CI passes.
+- Merge with a merge commit so each commit on the branch stays visible in history.
+- Commit messages: `<type>: <description>`, with type one of
+  `feat|fix|refactor|docs|test|chore|perf|ci`.
 
-- `main` is always releasable; every commit on it has passed CI.
-- Work happens on short-lived branches off `main`, named `<type>/<short-description>`,
-  matching the commit types below (e.g. `feat/retrieval-scoring`, `fix/doc-id-fallback`).
-- Open a PR into `main`. CI (lint + tests + coverage gate + build) must pass.
-- Merge with a merge commit (not squash) so the logical commit sequence on the branch
-  stays visible in `main`'s history — each commit should be a coherent, reviewable unit.
-- Delete the branch after merge.
+## Versioning
 
-## Commits
+[SemVer](https://semver.org/). Before 1.0, a breaking change to the golden-set schema or the
+CLI/MCP tool signatures bumps the minor version. Releases are annotated tags (`vX.Y.Z`) with
+a section in `CHANGELOG.md`.
 
-Conventional Commits: `<type>: <description>`, types `feat|fix|refactor|docs|test|chore|perf|ci`.
-
-## Releasing
-
-1. Update `version` in `pyproject.toml` and add a section to `CHANGELOG.md`.
-2. Commit: `chore(release): vX.Y.Z`.
-3. Merge to `main`, then tag: `git tag -a vX.Y.Z -m "vX.Y.Z"` and `git push origin vX.Y.Z`.
-4. Create a GitHub Release from the tag (`gh release create vX.Y.Z --generate-notes`).
-5. Publishing to PyPI/npm is a separate, explicit step — not automated yet.
-
-Versioning follows [SemVer](https://semver.org/): breaking changes to the golden-set
-schema or CLI/MCP tool signatures bump the major version while pre-1.0.
-
-## Local dev
+## Local development
 
 ```bash
-uv sync --extra mcp --dev
+uv sync --extra judge --dev
 uv run pytest --cov=src --cov-report=term-missing
 uv run ruff check src tests && uv run ruff format src tests
 ```
