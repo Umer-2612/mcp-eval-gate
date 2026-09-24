@@ -1,6 +1,6 @@
 [project]
 name = "mcp-eval-gate"
-version = "0.2.0"
+version = "0.3.0"
 description = "CI regression gate for MCP servers: run a golden set of tool calls, diff against a baseline, fail the build on regression"
 readme = "README.md"
 license = "MIT"
@@ -8,12 +8,27 @@ authors = [
     { name = "Umer Karachiwala", email = "karachiwalaumer2612@gmail.com" }
 ]
 requires-python = ">=3.12"
+keywords = ["mcp", "model-context-protocol", "regression-testing", "testing", "ci", "golden-tests"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = [
     "mcp>=2.0",
     "pyyaml>=6.0",
     "click>=8.1",
     "rich>=13.7",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Umer-2612/mcp-eval-gate"
+Repository = "https://github.com/Umer-2612/mcp-eval-gate"
+Issues = "https://github.com/Umer-2612/mcp-eval-gate/issues"
+Changelog = "https://github.com/Umer-2612/mcp-eval-gate/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 judge = ["anthropic>=0.40"]
