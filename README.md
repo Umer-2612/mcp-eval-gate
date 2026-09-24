@@ -77,7 +77,7 @@ cases:
     min_judge_score: 0.8
 ```
 
-`examples/golden_set.yaml` is a copy you can edit.
+[`examples/golden_set.yaml`](https://github.com/Umer-2612/mcp-eval-gate/blob/main/examples/golden_set.yaml) is a copy you can edit.
 
 ## Run as an MCP tool
 
@@ -94,12 +94,12 @@ The package also installs `mcp-eval-gate-mcp`, an MCP server over stdio with one
 
 ## Validation
 
-[`validation/`](validation/) has two runs against real servers, each with the actual command
+[`validation/`](https://github.com/Umer-2612/mcp-eval-gate/tree/main/validation) has two runs against real servers, each with the actual command
 output committed and steps to reproduce it. No paid API calls.
 
 - A one-line regression planted in the official MCP reference server, caught with exit
   code `1` and a real diff.
-- [A real bug](validation/utf8-boundary/) the official filesystem server shipped (garbled
+- [A real bug](https://github.com/Umer-2612/mcp-eval-gate/tree/main/validation/utf8-boundary) the official filesystem server shipped (garbled
   text when a multi-byte character straddled a read boundary), caught by running the commit
   before its upstream fix against a baseline from the fixed commit.
 

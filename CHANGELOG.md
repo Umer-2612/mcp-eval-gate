@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
 ### Changed
 
 - Failure details now show where an output first differs (with short context and both lengths)
@@ -63,6 +65,7 @@ what changed is what it connects to.
   Claude Code / Cursor.
 - Composite GitHub Action + example consumer workflow.
 
-[Unreleased]: https://github.com/Umer-2612/mcp-eval-gate/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Umer-2612/mcp-eval-gate/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.1.0
