@@ -27,6 +27,9 @@ pip install mcp-eval-gate
 
 # only if you use match_type: judge
 pip install "mcp-eval-gate[judge]"
+
+# or run it without installing
+uvx mcp-eval-gate --help
 ```
 
 ## Quickstart
@@ -88,6 +91,16 @@ The package also installs `mcp-eval-gate-mcp`, an MCP server over stdio with one
 {
   "mcpServers": {
     "mcp-eval-gate": { "command": "mcp-eval-gate-mcp" }
+  }
+}
+```
+
+Without installing, use `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-eval-gate": { "command": "uvx", "args": ["--from", "mcp-eval-gate", "mcp-eval-gate-mcp"] }
   }
 }
 ```
