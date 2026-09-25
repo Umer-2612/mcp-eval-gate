@@ -1,28 +1,31 @@
+# This runs as is against the official MCP reference server (needs Node.js).
+# To test your own server, change `server` and replace the cases below.
 server:
-  command: node
-  args: ["dist/index.js"]
-
-judge_model: claude-sonnet-4-5
+  command: npx
+  args: ["-y", "@modelcontextprotocol/server-everything", "stdio"]
+  # or, for an HTTP server instead of stdio:
+  # url: http://localhost:3000/mcp
 
 cases:
-  - id: get-weather-nyc
-    tool_name: get_weather
+  - id: echo
+    tool_name: echo
     tool_args:
-      city: "New York"
+      message: hello
     match_type: contains
-    expected_output: "New York"
+    expected_output: "hello"
 
-  - id: cancel-subscription
-    tool_name: cancel_subscription
+  - id: get-sum
+    tool_name: get-sum
     tool_args:
-      immediate: true
+      a: 12
+      b: 30
     match_type: exact
-    expected_output: "cancelled"
+    expected_output: "The sum of 12 and 30 is 42."
 
-  - id: retention-policy-answer
-    tool_name: search_docs
-    tool_args:
-      query: "data retention policy"
-    match_type: judge
-    judge_criteria: "Answer must state data is retained for 90 days"
-    min_judge_score: 0.8
+  # match_type: judge scores open-ended output with an LLM (needs ANTHROPIC_API_KEY):
+  # - id: summary
+  #   tool_name: search_docs
+  #   tool_args: {query: "data retention policy"}
+  #   match_type: judge
+  #   judge_criteria: "Answer must state data is retained for 90 days"
+  #   min_judge_score: 0.8

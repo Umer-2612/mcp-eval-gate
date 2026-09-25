@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
 
 import yaml
@@ -9,6 +10,7 @@ import yaml
 from mcp_eval_gate.models import GoldenCase, GoldenSetConfig, MatchType, ServerTarget
 
 REQUIRED_CASE_FIELDS = ("id", "tool_name")
+CASE_FIELDS = tuple(sorted(f.name for f in fields(GoldenCase)))
 
 
 class GoldenSetError(ValueError):
@@ -48,14 +50,40 @@ def _parse_server(raw_server: dict) -> ServerTarget:
 
 
 def _parse_case(raw_case: dict) -> GoldenCase:
+    case_id = raw_case.get("id", "<unknown>")
     missing = [field for field in REQUIRED_CASE_FIELDS if field not in raw_case]
     if missing:
-        case_id = raw_case.get("id", "<unknown>")
         raise GoldenSetError(f"case '{case_id}' is missing required field(s): {', '.join(missing)}")
 
-    fields = dict(raw_case)
-    fields["match_type"] = MatchType(fields.get("match_type", MatchType.CONTAINS))
-    return GoldenCase(**fields)
+    unknown = sorted(set(raw_case) - set(CASE_FIELDS))
+    if unknown:
+        raise GoldenSetError(
+            f"case '{case_id}' has unknown field(s): {', '.join(unknown)}. Valid fields: {', '.join(CASE_FIELDS)}"
+        )
+
+    raw_match_type = raw_case.get("match_type", MatchType.CONTAINS)
+    try:
+        match_type = MatchType(raw_match_type)
+    except ValueError:
+        valid = ", ".join(m.value for m in MatchType)
+        raise GoldenSetError(
+            f"case '{case_id}' has invalid match_type '{raw_match_type}'. Use one of: {valid}"
+        ) from None
+
+    case = GoldenCase(**{**raw_case, "match_type": match_type})
+    _require_expectation(case)
+    return case
+
+
+def _require_expectation(case: GoldenCase) -> None:
+    if case.match_type == MatchType.EXACT and case.expected_output is None:
+        raise GoldenSetError(f"case '{case.id}' uses match_type exact but has no expected_output")
+    if case.match_type == MatchType.CONTAINS and not case.expected_output:
+        raise GoldenSetError(
+            f"case '{case.id}' uses match_type contains but has no expected_output, so it would always pass"
+        )
+    if case.match_type == MatchType.JUDGE and not case.judge_criteria:
+        raise GoldenSetError(f"case '{case.id}' uses match_type judge but has no judge_criteria")
 
 
 def _reject_duplicate_ids(cases: tuple[GoldenCase, ...]) -> None:

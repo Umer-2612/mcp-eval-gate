@@ -66,3 +66,17 @@ async def test_run_eval_gate_update_baseline_writes_file(tmp_path, monkeypatch):
 
     assert result["baseline_updated"] is True
     assert json.loads(baseline_path.read_text()) == {"echo-case": 1.0}
+
+
+@pytest.mark.anyio
+async def test_run_eval_gate_returns_an_error_when_the_server_cannot_start(tmp_path):
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(
+        "server:\n  command: definitely-not-a-real-command-xyz\ncases:\n"
+        "  - id: c1\n    tool_name: echo\n    match_type: contains\n    expected_output: x\n"
+    )
+
+    result = await mcp_server.run_eval_gate(config_path=str(config_path))
+
+    assert result["ok"] is False
+    assert "could not run" in result["error"].lower()

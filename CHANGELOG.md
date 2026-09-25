@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `run --update-baseline` now refuses to record a baseline while any case fails, and exits 1.
+- Exact and substring cases without `expected_output`, and judge cases without `judge_criteria`,
+  are rejected. Before, a substring case with no expected text always passed.
+- A typo in a case field, or an invalid `match_type`, gives a one-line error that lists the valid
+  options, not a raw `TypeError`.
+- A server that can't start or that exits immediately gives one readable error (exit code 2)
+  instead of a page of traceback.
+- `init` now writes a golden set that runs as is against the official MCP reference server.
+
 ### Added
 
 - Per-case `timeout_seconds` (default 30). A tool that hangs now fails its own case with a

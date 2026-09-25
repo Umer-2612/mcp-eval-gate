@@ -35,11 +35,15 @@ uvx mcp-eval-gate --help
 ## Quickstart
 
 ```bash
-mcp-eval-gate init                   # scaffolds golden_set.yaml
-# edit golden_set.yaml with how to reach your server and your test cases
+mcp-eval-gate init                   # scaffolds golden_set.yaml, which runs as is against the
+                                     # official MCP reference server (needs Node.js)
 mcp-eval-gate run --update-baseline  # first run: record the baseline
 mcp-eval-gate run                    # later runs: gate on regressions
 ```
+
+Then point `server` at your own server and replace the cases. `--update-baseline` refuses to
+record while any case fails, since a baseline should hold known-good output. Exact and
+substring cases need an `expected_output`, and judge cases need `judge_criteria`.
 
 `run` prints a table and a diff, and exits `1` if any case fails or regresses against the
 baseline. A tool call that returns an error always fails its case. Each case also times out

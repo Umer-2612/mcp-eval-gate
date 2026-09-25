@@ -107,3 +107,67 @@ def test_case_timeout_defaults_to_30_seconds_and_can_be_overridden(tmp_path):
 
     assert by_id["default"].timeout_seconds == 30.0
     assert by_id["custom"].timeout_seconds == 2.5
+
+
+def test_exact_and_contains_cases_require_expected_output(tmp_path):
+    for match_type in ("exact", "contains"):
+        f = tmp_path / f"{match_type}.yaml"
+        f.write_text(
+            f"server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    match_type: {match_type}\n"
+        )
+
+        with pytest.raises(GoldenSetError, match="expected_output"):
+            load_golden_set(f)
+
+
+def test_case_with_no_match_type_defaults_to_contains_and_still_requires_expected_output(tmp_path):
+    f = tmp_path / "default.yaml"
+    f.write_text("server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n")
+
+    with pytest.raises(GoldenSetError, match="expected_output"):
+        load_golden_set(f)
+
+
+def test_judge_case_requires_judge_criteria(tmp_path):
+    f = tmp_path / "judge.yaml"
+    f.write_text("server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    match_type: judge\n")
+
+    with pytest.raises(GoldenSetError, match="judge_criteria"):
+        load_golden_set(f)
+
+
+def test_unknown_case_field_names_the_typo_and_lists_valid_fields(tmp_path):
+    f = tmp_path / "typo.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n  - id: typo\n    tool_name: t1\n    matchtype: exact\n"
+        "    expected_output: x\n"
+    )
+
+    with pytest.raises(GoldenSetError) as excinfo:
+        load_golden_set(f)
+
+    message = str(excinfo.value)
+    assert "typo" in message and "matchtype" in message
+    assert "match_type" in message
+
+
+def test_invalid_match_type_gives_a_readable_error(tmp_path):
+    f = tmp_path / "bad_match.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    match_type: fuzzy\n"
+        "    expected_output: x\n"
+    )
+
+    with pytest.raises(GoldenSetError, match="match_type"):
+        load_golden_set(f)
+
+
+def test_the_scaffold_written_by_init_is_a_valid_golden_set(tmp_path):
+    from mcp_eval_gate.cli import SAMPLE_GOLDEN_SET
+
+    f = tmp_path / "scaffold.yaml"
+    f.write_text(SAMPLE_GOLDEN_SET)
+
+    config = load_golden_set(f)
+
+    assert len(config.cases) >= 2
