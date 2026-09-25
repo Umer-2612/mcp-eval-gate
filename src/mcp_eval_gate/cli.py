@@ -9,42 +9,44 @@ import anyio
 import click
 
 from mcp_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
+from mcp_eval_gate.errors import friendly_run_error
 from mcp_eval_gate.golden_set import GoldenSetError, load_golden_set
 from mcp_eval_gate.judge import build_default_anthropic_client
 from mcp_eval_gate.report import exit_code_for, print_console_report, write_html_report
 from mcp_eval_gate.runner import run_golden_set
 
 SAMPLE_GOLDEN_SET = """\
+# This runs as is against the official MCP reference server (needs Node.js).
+# To test your own server, change `server` and replace the cases below.
 server:
-  command: node
-  args: ["dist/index.js"]
+  command: npx
+  args: ["-y", "@modelcontextprotocol/server-everything", "stdio"]
   # or, for an HTTP server instead of stdio:
   # url: http://localhost:3000/mcp
 
-judge_model: claude-sonnet-4-5
-
 cases:
-  - id: example-contains-case
-    tool_name: get_weather
+  - id: echo
+    tool_name: echo
     tool_args:
-      city: "New York"
+      message: hello
     match_type: contains
-    expected_output: "New York"
+    expected_output: "hello"
 
-  - id: example-exact-case
-    tool_name: cancel_subscription
+  - id: get-sum
+    tool_name: get-sum
     tool_args:
-      immediate: true
+      a: 12
+      b: 30
     match_type: exact
-    expected_output: "cancelled"
+    expected_output: "The sum of 12 and 30 is 42."
 
-  - id: example-judge-case
-    tool_name: search_docs
-    tool_args:
-      query: "data retention policy"
-    match_type: judge
-    judge_criteria: "Answer must state data is retained for 90 days"
-    min_judge_score: 0.8
+  # match_type: judge scores open-ended output with an LLM (needs ANTHROPIC_API_KEY):
+  # - id: summary
+  #   tool_name: search_docs
+  #   tool_args: {query: "data retention policy"}
+  #   match_type: judge
+  #   judge_criteria: "Answer must state data is retained for 90 days"
+  #   min_judge_score: 0.8
 """
 
 
@@ -75,9 +77,25 @@ def run(config_path: Path, baseline_path: Path, update_baseline: bool, html_repo
         sys.exit(2)
 
     anthropic_client = build_default_anthropic_client()
-    results = anyio.run(lambda: run_golden_set(config, anthropic_client=anthropic_client))
+    try:
+        results = anyio.run(lambda: run_golden_set(config, anthropic_client=anthropic_client))
+    except Exception as exc:
+        message = friendly_run_error(exc, config.server)
+        if message is None:
+            raise
+        click.secho(f"error: {message}", fg="red", err=True)
+        sys.exit(2)
 
     if update_baseline:
+        failed = [r.case_id for r in results if not r.passed]
+        if failed:
+            print_console_report(results, regressions=[])
+            click.secho(
+                f"baseline not updated: {len(failed)} case(s) failed ({', '.join(failed)}). "
+                "A baseline should record known-good output, so fix these first.",
+                fg="red",
+            )
+            sys.exit(1)
         save_baseline(baseline_path, results)
         click.secho(f"baseline updated: {baseline_path}", fg="cyan")
         print_console_report(results, regressions=[])

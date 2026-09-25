@@ -11,6 +11,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 
 from mcp_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
+from mcp_eval_gate.errors import friendly_run_error
 from mcp_eval_gate.golden_set import GoldenSetError, load_golden_set
 from mcp_eval_gate.judge import build_default_anthropic_client
 from mcp_eval_gate.runner import run_golden_set
@@ -37,7 +38,13 @@ async def run_eval_gate(
         return {"ok": False, "error": str(exc)}
 
     anthropic_client = build_default_anthropic_client()
-    results = await run_golden_set(config, anthropic_client=anthropic_client)
+    try:
+        results = await run_golden_set(config, anthropic_client=anthropic_client)
+    except Exception as exc:
+        message = friendly_run_error(exc, config.server)
+        if message is None:
+            raise
+        return {"ok": False, "error": message}
 
     if update_baseline:
         save_baseline(Path(baseline_path), results)

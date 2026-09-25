@@ -147,3 +147,64 @@ def test_run_over_a_real_stdio_server_fails_a_hung_tool_and_exits_1(tmp_path):
     assert result.exit_code == 1
     assert "timed out after 0.5s" in result.output
     assert "still-runs" in result.output
+
+
+def test_update_baseline_refuses_to_record_failing_cases(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(
+        "server:\n  command: unused\ncases:\n"
+        "  - id: good\n    tool_name: echo\n    tool_args: {message: hello}\n"
+        "    match_type: contains\n    expected_output: hello\n"
+        "  - id: broken\n    tool_name: echo\n    tool_args: {message: hello}\n"
+        "    match_type: exact\n    expected_output: something else\n"
+    )
+    baseline_path = tmp_path / "baseline.json"
+    runner_cli = CliRunner()
+
+    result = runner_cli.invoke(
+        cli.main, ["run", "--config", str(config_path), "--baseline", str(baseline_path), "--update-baseline"]
+    )
+
+    assert result.exit_code == 1
+    assert not baseline_path.exists()
+    assert "broken" in result.output
+    assert "baseline not updated" in result.output.lower()
+
+
+def test_a_server_that_cannot_start_gives_one_readable_error_not_a_traceback(tmp_path):
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(
+        "server:\n  command: definitely-not-a-real-command-xyz\ncases:\n"
+        "  - id: c1\n    tool_name: echo\n    match_type: contains\n    expected_output: x\n"
+    )
+    runner_cli = CliRunner()
+
+    result = runner_cli.invoke(
+        cli.main, ["run", "--config", str(config_path), "--baseline", str(tmp_path / "b.json")]
+    )
+
+    assert result.exit_code == 2
+    assert "could not run" in result.output.lower()
+    assert "definitely-not-a-real-command-xyz" in result.output
+    assert "Traceback" not in result.output
+    assert len(result.output.splitlines()) < 10
+
+
+def test_a_server_that_exits_immediately_gives_a_readable_error(tmp_path):
+    import sys
+
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(
+        f"server:\n  command: {sys.executable}\n  args: ['-c', 'import sys; sys.exit(3)']\ncases:\n"
+        "  - id: c1\n    tool_name: echo\n    match_type: contains\n    expected_output: x\n"
+    )
+    runner_cli = CliRunner()
+
+    result = runner_cli.invoke(
+        cli.main, ["run", "--config", str(config_path), "--baseline", str(tmp_path / "b.json")]
+    )
+
+    assert result.exit_code == 2
+    assert "could not run" in result.output.lower()
+    assert "Traceback" not in result.output
