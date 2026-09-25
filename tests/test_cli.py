@@ -122,3 +122,28 @@ def test_run_exits_2_on_invalid_golden_set(tmp_path):
     result = runner_cli.invoke(cli.main, ["run", "--config", str(config_path)])
 
     assert result.exit_code == 2
+
+
+def test_run_over_a_real_stdio_server_fails_a_hung_tool_and_exits_1(tmp_path):
+    import sys
+    from pathlib import Path
+
+    server_script = Path(__file__).parent / "fixtures" / "stdio_test_server.py"
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(
+        f"server:\n  command: {sys.executable}\n  args: ['{server_script}']\n"
+        "cases:\n"
+        "  - id: hangs\n    tool_name: slow\n    tool_args: {seconds: 30}\n"
+        "    match_type: contains\n    expected_output: done\n    timeout_seconds: 0.5\n"
+        "  - id: still-runs\n    tool_name: echo\n    tool_args: {message: hello}\n"
+        "    match_type: contains\n    expected_output: hello\n"
+    )
+    runner_cli = CliRunner()
+
+    result = runner_cli.invoke(
+        cli.main, ["run", "--config", str(config_path), "--baseline", str(tmp_path / "b.json")]
+    )
+
+    assert result.exit_code == 1
+    assert "timed out after 0.5s" in result.output
+    assert "still-runs" in result.output

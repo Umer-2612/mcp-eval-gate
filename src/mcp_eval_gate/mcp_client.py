@@ -34,8 +34,13 @@ async def connect(target: ServerTarget) -> AsyncIterator[ClientSession]:
             yield session
 
 
-async def call_tool(session: ClientSession, tool_name: str, arguments: dict[str, object]) -> ToolCallOutcome:
-    result = await session.call_tool(tool_name, arguments)
+async def call_tool(
+    session: ClientSession,
+    tool_name: str,
+    arguments: dict[str, object],
+    timeout_seconds: float | None = None,
+) -> ToolCallOutcome:
+    result = await session.call_tool(tool_name, arguments, read_timeout_seconds=timeout_seconds)
     return parse_call_tool_result(result)
 
 

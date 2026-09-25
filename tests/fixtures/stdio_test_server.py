@@ -12,5 +12,14 @@ def echo(message: str) -> str:
     return message
 
 
+@server.tool()
+async def slow(seconds: float) -> str:
+    """Sleep, then return."""
+    import asyncio
+
+    await asyncio.sleep(seconds)
+    return "done"
+
+
 if __name__ == "__main__":
     server.run()

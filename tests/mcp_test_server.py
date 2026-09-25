@@ -45,6 +45,12 @@ def build_echo_server() -> MCPServer:
         return a + b
 
     @server.tool()
+    async def slow(seconds: float) -> str:
+        """Sleep, then return."""
+        await anyio.sleep(seconds)
+        return "done"
+
+    @server.tool()
     def always_fails() -> str:
         """A tool that always raises."""
         raise RuntimeError("boom")

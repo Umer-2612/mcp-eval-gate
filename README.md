@@ -42,7 +42,9 @@ mcp-eval-gate run                    # later runs: gate on regressions
 ```
 
 `run` prints a table and a diff, and exits `1` if any case fails or regresses against the
-baseline. A tool call that returns an error always fails its case.
+baseline. A tool call that returns an error always fails its case. Each case also times out
+after 30 seconds (set `timeout_seconds` on a case to change it), and a timeout fails only that
+case, so one hung tool does not stall the whole run.
 
 ## Golden set
 

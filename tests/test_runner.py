@@ -121,3 +121,90 @@ async def test_run_golden_set_connects_once_and_scores_every_case(monkeypatch):
 
     assert [r.case_id for r in results] == ["c1", "c2"]
     assert all(r.passed for r in results)
+
+
+@pytest.mark.anyio
+async def test_run_case_fails_a_case_that_exceeds_its_timeout():
+    import time
+
+    case = GoldenCase(
+        id="slow-case",
+        tool_name="slow",
+        tool_args={"seconds": 5},
+        match_type=MatchType.CONTAINS,
+        expected_output="done",
+        timeout_seconds=0.3,
+    )
+
+    async with connected_session(build_echo_server()) as session:
+        started = time.monotonic()
+        result = await run_case(case, session=session, config=_config(case), anthropic_client=None)
+        elapsed = time.monotonic() - started
+
+    assert result.passed is False
+    assert result.score == 0.0
+    assert "timed out after 0.3s" in result.detail
+    assert elapsed < 3
+
+
+@pytest.mark.anyio
+async def test_a_timeout_does_not_stop_later_cases_from_running():
+    slow = GoldenCase(
+        id="slow-case",
+        tool_name="slow",
+        tool_args={"seconds": 5},
+        match_type=MatchType.CONTAINS,
+        expected_output="done",
+        timeout_seconds=0.3,
+    )
+    after = GoldenCase(
+        id="after",
+        tool_name="echo",
+        tool_args={"message": "still alive"},
+        match_type=MatchType.CONTAINS,
+        expected_output="still alive",
+    )
+    config = _config(slow, after)
+
+    async with connected_session(build_echo_server()) as session:
+        first = await run_case(slow, session=session, config=config, anthropic_client=None)
+        second = await run_case(after, session=session, config=config, anthropic_client=None)
+
+    assert first.passed is False
+    assert second.passed is True
+
+
+@pytest.mark.anyio
+async def test_a_case_that_finishes_within_its_timeout_is_scored_normally():
+    case = GoldenCase(
+        id="quick",
+        tool_name="slow",
+        tool_args={"seconds": 0.05},
+        match_type=MatchType.EXACT,
+        expected_output="done",
+        timeout_seconds=5,
+    )
+
+    async with connected_session(build_echo_server()) as session:
+        result = await run_case(case, session=session, config=_config(case), anthropic_client=None)
+
+    assert result.passed is True
+
+
+@pytest.mark.anyio
+async def test_a_non_timeout_protocol_error_fails_the_case_instead_of_crashing(monkeypatch):
+    from mcp.shared.exceptions import MCPError
+
+    import mcp_eval_gate.runner as runner_module
+
+    async def raising_call_tool(*args, **kwargs):
+        raise MCPError(-32602, "Invalid params: missing required argument")
+
+    monkeypatch.setattr(runner_module, "call_tool", raising_call_tool)
+    case = GoldenCase(id="bad-params", tool_name="echo", match_type=MatchType.CONTAINS, expected_output="x")
+
+    result = await runner_module.run_case(case, session=None, config=_config(case), anthropic_client=None)
+
+    assert result.passed is False
+    assert "-32602" in result.detail
+    assert "Invalid params" in result.detail
