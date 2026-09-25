@@ -6,6 +6,12 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Per-case `timeout_seconds` (default 30). A tool that hangs now fails its own case with a
+  "timed out" message instead of stalling the run. Other MCP protocol errors also fail the case
+  instead of crashing the run. Prompted by feedback on the Medium article.
+
 ## [0.3.0] - 2026-09-24
 
 ### Changed

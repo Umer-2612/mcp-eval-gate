@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from mcp.shared.exceptions import MCPError
+from mcp.types import REQUEST_TIMEOUT
+
 from mcp_eval_gate.judge import judge_answer
 from mcp_eval_gate.mcp_client import call_tool, connect
 from mcp_eval_gate.models import CaseResult, GoldenCase, GoldenSetConfig, MatchType
@@ -22,7 +25,10 @@ async def run_golden_set(config: GoldenSetConfig, *, anthropic_client: Any | Non
 async def run_case(
     case: GoldenCase, *, session: Any, config: GoldenSetConfig, anthropic_client: Any | None
 ) -> CaseResult:
-    outcome = await call_tool(session, case.tool_name, case.tool_args)
+    try:
+        outcome = await call_tool(session, case.tool_name, case.tool_args, timeout_seconds=case.timeout_seconds)
+    except MCPError as exc:
+        return CaseResult(case.id, score=0.0, passed=False, detail=_describe_protocol_error(exc, case))
 
     if case.match_type != MatchType.JUDGE:
         return score_case(case, outcome)
@@ -44,3 +50,9 @@ async def run_case(
         anthropic_client, model=config.judge_model, criteria=case.judge_criteria or "", answer=outcome.text
     )
     return score_judge_case(case, judge_score=score, reasoning=reasoning)
+
+
+def _describe_protocol_error(exc: MCPError, case: GoldenCase) -> str:
+    if exc.code == REQUEST_TIMEOUT:
+        return f"timed out after {case.timeout_seconds:g}s with no response"
+    return f"MCP protocol error {exc.code}: {preview(exc.message)}"

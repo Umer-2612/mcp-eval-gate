@@ -35,6 +35,7 @@ class GoldenCase:
     expected_output: str | None = None
     judge_criteria: str | None = None
     min_judge_score: float = 0.8
+    timeout_seconds: float = 30.0
 
 
 @dataclass(frozen=True)

@@ -92,3 +92,18 @@ def test_duplicate_case_ids_raise_golden_set_error(tmp_path):
 
     with pytest.raises(GoldenSetError, match="duplicate"):
         load_golden_set(f)
+
+
+def test_case_timeout_defaults_to_30_seconds_and_can_be_overridden(tmp_path):
+    f = tmp_path / "timeouts.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n"
+        "  - id: default\n    tool_name: t1\n    expected_output: a\n"
+        "  - id: custom\n    tool_name: t2\n    expected_output: b\n    timeout_seconds: 2.5\n"
+    )
+
+    config = load_golden_set(f)
+    by_id = {c.id: c for c in config.cases}
+
+    assert by_id["default"].timeout_seconds == 30.0
+    assert by_id["custom"].timeout_seconds == 2.5
