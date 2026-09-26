@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 from mcp_eval_gate.models import GoldenCase, GoldenSetConfig, MatchType, ServerTarget
+from mcp_eval_gate.normalize import NormalizeError, parse_normalizers
 
 REQUIRED_CASE_FIELDS = ("id", "tool_name")
 CASE_FIELDS = tuple(sorted(f.name for f in fields(GoldenCase)))
@@ -27,14 +28,30 @@ def load_golden_set(path: Path) -> GoldenSetConfig:
         raise GoldenSetError("golden set file is missing the required `server` block")
 
     server = _parse_server(raw["server"])
-    cases = tuple(_parse_case(raw_case) for raw_case in raw.get("cases", []))
+    cases = tuple(_parse_case(raw_case) for raw_case in raw.get("cases") or [])
     _reject_duplicate_ids(cases)
+
+    try:
+        normalize = parse_normalizers(raw.get("normalize"))
+    except NormalizeError as exc:
+        raise GoldenSetError(f"top-level `normalize`: {exc}") from exc
 
     return GoldenSetConfig(
         server=server,
         cases=cases,
         judge_model=raw.get("judge_model", "claude-sonnet-4-5"),
+        normalize=normalize,
+        contract_ignore=tuple(raw.get("contract_ignore") or ()),
     )
+
+
+def require_cases(config: GoldenSetConfig) -> GoldenSetConfig:
+    if not config.cases:
+        raise GoldenSetError(
+            "the golden set has no cases to run. If it was generated from a server's tool list, "
+            "uncomment the cases you want and fill in their arguments"
+        )
+    return config
 
 
 def _parse_server(raw_server: dict) -> ServerTarget:
@@ -70,7 +87,14 @@ def _parse_case(raw_case: dict) -> GoldenCase:
             f"case '{case_id}' has invalid match_type '{raw_match_type}'. Use one of: {valid}"
         ) from None
 
-    case = GoldenCase(**{**raw_case, "match_type": match_type})
+    try:
+        normalize = parse_normalizers(raw_case.get("normalize"))
+    except NormalizeError as exc:
+        raise GoldenSetError(f"case '{case_id}': {exc}") from exc
+    if not isinstance(raw_case.get("expect_error", False), bool):
+        raise GoldenSetError(f"case '{case_id}' has a non-boolean expect_error, use true or false")
+
+    case = GoldenCase(**{**raw_case, "match_type": match_type, "normalize": normalize})
     _require_expectation(case)
     return case
 
@@ -84,6 +108,8 @@ def _require_expectation(case: GoldenCase) -> None:
         )
     if case.match_type == MatchType.JUDGE and not case.judge_criteria:
         raise GoldenSetError(f"case '{case.id}' uses match_type judge but has no judge_criteria")
+    if case.match_type == MatchType.JUDGE and case.expect_error:
+        raise GoldenSetError(f"case '{case.id}' uses match_type judge, which scores successful answers only")
 
 
 def _reject_duplicate_ids(cases: tuple[GoldenCase, ...]) -> None:

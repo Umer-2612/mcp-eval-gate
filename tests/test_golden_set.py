@@ -171,3 +171,99 @@ def test_the_scaffold_written_by_init_is_a_valid_golden_set(tmp_path):
     config = load_golden_set(f)
 
     assert len(config.cases) >= 2
+
+
+def test_snapshot_case_needs_no_expected_output(tmp_path):
+    f = tmp_path / "snap.yaml"
+    f.write_text("server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    match_type: snapshot\n")
+
+    config = load_golden_set(f)
+
+    assert config.cases[0].match_type == MatchType.SNAPSHOT
+
+
+def test_expect_error_is_loaded_and_defaults_to_false(tmp_path):
+    f = tmp_path / "err.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n"
+        "  - id: plain\n    tool_name: t1\n    expected_output: a\n"
+        "  - id: errs\n    tool_name: t2\n    expected_output: boom\n    expect_error: true\n"
+    )
+
+    by_id = {c.id: c for c in load_golden_set(f).cases}
+
+    assert by_id["plain"].expect_error is False
+    assert by_id["errs"].expect_error is True
+
+
+def test_expect_error_must_be_a_boolean(tmp_path):
+    f = tmp_path / "err.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    expected_output: a\n"
+        "    expect_error: 'yes'\n"
+    )
+
+    with pytest.raises(GoldenSetError, match="expect_error"):
+        load_golden_set(f)
+
+
+def test_judge_case_cannot_expect_an_error(tmp_path):
+    f = tmp_path / "judge_err.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    match_type: judge\n"
+        "    judge_criteria: x\n    expect_error: true\n"
+    )
+
+    with pytest.raises(GoldenSetError, match="judge"):
+        load_golden_set(f)
+
+
+def test_file_level_and_case_level_normalizers_are_loaded(tmp_path):
+    f = tmp_path / "norm.yaml"
+    f.write_text(
+        "server:\n  command: node\nnormalize:\n  - trim\ncases:\n"
+        "  - id: c1\n    tool_name: t1\n    expected_output: a\n    normalize:\n      - tmp_paths\n"
+    )
+
+    config = load_golden_set(f)
+
+    assert [n.kind for n in config.normalize] == ["trim"]
+    assert len(config.cases[0].normalize) == 1
+
+
+def test_an_invalid_normalizer_names_the_case(tmp_path):
+    f = tmp_path / "bad_norm.yaml"
+    f.write_text(
+        "server:\n  command: node\ncases:\n  - id: c1\n    tool_name: t1\n    expected_output: a\n"
+        "    normalize: [nope]\n"
+    )
+
+    with pytest.raises(GoldenSetError, match="c1.*unknown normalizer"):
+        load_golden_set(f)
+
+
+def test_contract_ignore_is_loaded(tmp_path):
+    f = tmp_path / "ignore.yaml"
+    f.write_text(
+        "server:\n  command: node\ncontract_ignore: [server_info.version]\ncases:\n"
+        "  - id: c1\n    tool_name: t1\n    expected_output: a\n"
+    )
+
+    assert load_golden_set(f).contract_ignore == ("server_info.version",)
+
+
+def test_a_golden_set_with_every_case_commented_out_loads_as_empty(tmp_path):
+    f = tmp_path / "empty.yaml"
+    f.write_text("server:\n  command: node\ncases:\n  # - id: c1\n")
+
+    assert load_golden_set(f).cases == ()
+
+
+def test_require_cases_explains_how_to_enable_one(tmp_path):
+    from mcp_eval_gate.golden_set import require_cases
+
+    f = tmp_path / "empty.yaml"
+    f.write_text("server:\n  command: node\ncases:\n")
+
+    with pytest.raises(GoldenSetError, match="no cases.*uncomment"):
+        require_cases(load_golden_set(f))

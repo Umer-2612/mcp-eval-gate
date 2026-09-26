@@ -1,4 +1,5 @@
 from mcp_eval_gate.models import GoldenCase, MatchType, ToolCallOutcome
+from mcp_eval_gate.normalize import parse_normalizers
 from mcp_eval_gate.scoring import score_case, score_judge_case
 
 
@@ -35,13 +36,134 @@ def test_contains_case_fails_when_expected_text_is_missing():
     assert "London" in result.detail
 
 
-def test_exact_case_passes_only_on_exact_match_ignoring_surrounding_whitespace():
+def test_exact_case_fails_on_surrounding_whitespace_and_shows_it_in_the_detail():
+    case = _case(match_type=MatchType.EXACT, expected_output="42")
+    outcome = ToolCallOutcome(text="42\n", structured=None, is_error=False)
+
+    result = score_case(case, outcome)
+
+    assert result.passed is False
+    assert "'42\\n'" in result.detail
+
+
+def test_exact_case_ignores_surrounding_whitespace_when_the_trim_normalizer_is_on():
     case = _case(match_type=MatchType.EXACT, expected_output="42")
     outcome = ToolCallOutcome(text=" 42 \n", structured=None, is_error=False)
+
+    result = score_case(case, outcome, normalizers=parse_normalizers(["trim"]))
+
+    assert result.passed is True
+
+
+def test_normalizers_apply_to_contains_cases_on_both_sides():
+    case = _case(match_type=MatchType.CONTAINS, expected_output="at 2026-01-01")
+    outcome = ToolCallOutcome(text="saved at 2026-09-26 ok", structured=None, is_error=False)
+    normalizers = parse_normalizers([{"regex": r"\d{4}-\d{2}-\d{2}", "replace": "<date>"}])
+
+    result = score_case(case, outcome, normalizers=normalizers)
+
+    assert result.passed is True
+
+
+def test_expect_error_case_passes_when_the_tool_returns_an_error_with_matching_text():
+    case = _case(expect_error=True, match_type=MatchType.CONTAINS, expected_output="Error executing tool")
+    outcome = ToolCallOutcome(text="Error executing tool boom", structured=None, is_error=True)
 
     result = score_case(case, outcome)
 
     assert result.passed is True
+
+
+def test_expect_error_case_fails_when_the_tool_succeeds():
+    case = _case(expect_error=True, match_type=MatchType.CONTAINS, expected_output="x")
+    outcome = ToolCallOutcome(text="x", structured=None, is_error=False)
+
+    result = score_case(case, outcome)
+
+    assert result.passed is False
+    assert "expected the tool call to return an error" in result.detail
+
+
+def test_snapshot_passes_when_output_matches_the_recorded_outcome():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    recorded = ToolCallOutcome(text="72F", structured={"t": 72}, is_error=False)
+    current = ToolCallOutcome(text="72F", structured={"t": 72}, is_error=False)
+
+    result = score_case(case, current, recorded=recorded)
+
+    assert result.passed is True
+
+
+def test_snapshot_fails_with_a_readable_diff_when_text_changes():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    recorded = ToolCallOutcome(text="72F sunny", structured=None, is_error=False)
+    current = ToolCallOutcome(text="72F cloudy", structured=None, is_error=False)
+
+    result = score_case(case, current, recorded=recorded)
+
+    assert result.passed is False
+    assert "first difference at char" in result.detail
+
+
+def test_snapshot_fails_when_structured_content_changes():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    recorded = ToolCallOutcome(text="ok", structured={"t": 72}, is_error=False)
+    current = ToolCallOutcome(text="ok", structured={"t": 71}, is_error=False)
+
+    result = score_case(case, current, recorded=recorded)
+
+    assert result.passed is False
+    assert "structured content differs" in result.detail
+
+
+def test_snapshot_fails_when_a_success_turns_into_an_error():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    recorded = ToolCallOutcome(text="ok", structured=None, is_error=False)
+    current = ToolCallOutcome(text="boom", structured=None, is_error=True)
+
+    result = score_case(case, current, recorded=recorded)
+
+    assert result.passed is False
+
+
+def test_snapshot_records_error_results_as_expected_errors():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None, expect_error=True)
+    recorded = ToolCallOutcome(text="Error executing tool boom", structured=None, is_error=True)
+    current = ToolCallOutcome(text="Error executing tool boom", structured=None, is_error=True)
+
+    result = score_case(case, current, recorded=recorded)
+
+    assert result.passed is True
+
+
+def test_snapshot_ignores_volatile_keys_through_normalizers():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    recorded = ToolCallOutcome(text='{"id": 1, "v": 3}', structured={"id": 1, "v": 3}, is_error=False)
+    current = ToolCallOutcome(text='{"id": 9, "v": 3}', structured={"id": 9, "v": 3}, is_error=False)
+
+    result = score_case(case, current, recorded=recorded, normalizers=parse_normalizers([{"ignore_keys": ["id"]}]))
+
+    assert result.passed is True
+
+
+def test_snapshot_without_a_recording_fails_and_says_how_to_record():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    current = ToolCallOutcome(text="ok", structured=None, is_error=False)
+
+    result = score_case(case, current, recorded=None)
+
+    assert result.passed is False
+    assert "--update-baseline" in result.detail
+
+
+def test_snapshot_passes_while_recording_and_keeps_the_outcome_for_the_baseline():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    current = ToolCallOutcome(text="ok", structured=None, is_error=False)
+
+    result = score_case(case, current, recording=True)
+
+    assert result.passed is True
+    assert result.outcome == current
 
 
 def test_exact_case_fails_on_partial_match():
