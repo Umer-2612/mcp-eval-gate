@@ -1,5 +1,9 @@
-from mcp_eval_gate.baseline import diff_against_baseline, load_baseline, save_baseline
-from mcp_eval_gate.models import CaseResult
+import json
+
+import pytest
+
+from mcp_eval_gate.baseline import BaselineError, diff_against_baseline, load_baseline, save_baseline
+from mcp_eval_gate.models import CaseResult, ToolCallOutcome
 
 
 def test_no_regressions_when_scores_match_baseline():
@@ -66,18 +70,75 @@ def test_case_missing_from_current_run_but_present_in_baseline_is_a_regression()
     assert "missing" in regressions[0].detail.lower()
 
 
-def test_load_baseline_returns_empty_dict_when_file_missing(tmp_path):
-    assert load_baseline(tmp_path / "missing.json") == {}
+def test_load_baseline_is_empty_when_the_file_is_missing(tmp_path):
+    baseline = load_baseline(tmp_path / "missing.json")
+
+    assert baseline.scores == {}
+    assert baseline.outcomes == {}
+    assert baseline.contract is None
 
 
-def test_save_then_load_baseline_round_trips(tmp_path):
+def test_save_then_load_round_trips_scores_and_raw_outcomes(tmp_path):
     path = tmp_path / "baseline.json"
+    outcome = ToolCallOutcome(text="  72F\n", structured={"t": 72}, is_error=False)
     results = [
-        CaseResult("c1", score=0.9, passed=True, detail="ok"),
+        CaseResult("c1", score=0.9, passed=True, detail="ok", outcome=outcome),
         CaseResult("c2", score=1.0, passed=True, detail="ok"),
     ]
 
-    save_baseline(path, results)
+    save_baseline(path, results, contract={"server_info": {"name": "s"}})
     loaded = load_baseline(path)
 
-    assert loaded == {"c1": 0.9, "c2": 1.0}
+    assert loaded.scores == {"c1": 0.9, "c2": 1.0}
+    assert loaded.outcomes == {"c1": outcome}
+    assert loaded.contract == {"server_info": {"name": "s"}}
+
+
+def test_saved_file_is_versioned_and_keeps_the_raw_text(tmp_path):
+    path = tmp_path / "baseline.json"
+    outcome = ToolCallOutcome(text="raw\n", structured=None, is_error=True)
+
+    save_baseline(path, [CaseResult("c1", score=1.0, passed=True, detail="ok", outcome=outcome)])
+    data = json.loads(path.read_text())
+
+    assert data["version"] == 2
+    assert data["cases"]["c1"] == {
+        "score": 1.0,
+        "outcome": {"is_error": True, "text": "raw\n", "structured": None},
+    }
+
+
+def test_a_legacy_score_only_baseline_still_loads(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text(json.dumps({"c1": 1.0, "c2": 0.5}))
+
+    loaded = load_baseline(path)
+
+    assert loaded.scores == {"c1": 1.0, "c2": 0.5}
+    assert loaded.outcomes == {}
+
+
+def test_a_baseline_from_a_newer_version_is_rejected_with_a_clear_message(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text(json.dumps({"version": 99, "cases": {}}))
+
+    with pytest.raises(BaselineError, match="newer"):
+        load_baseline(path)
+
+
+def test_a_corrupt_baseline_gives_a_readable_error(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text("{not json")
+
+    with pytest.raises(BaselineError, match="not valid JSON"):
+        load_baseline(path)
+
+
+def test_baseline_round_trips_non_ascii_text_regardless_of_the_locale_encoding(tmp_path):
+    path = tmp_path / "baseline.json"
+    outcome = ToolCallOutcome(text="界 🚀", structured=None, is_error=False)
+
+    save_baseline(path, [CaseResult("c1", score=1.0, passed=True, detail="ok", outcome=outcome)])
+
+    assert "界 🚀".encode() in path.read_bytes()
+    assert load_baseline(path).outcomes["c1"] == outcome

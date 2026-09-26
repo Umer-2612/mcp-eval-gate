@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Breaking
+
+- The baseline file is now versioned and holds each case's raw output and the server's contract, not
+  only a score. Old `{case_id: score}` files still load, and the next `--update-baseline` upgrades them.
+- `match_type: exact` no longer strips surrounding whitespace, so a trailing newline is a difference.
+  Add the `trim` normalizer to get the old behavior.
+- `run_golden_set` and `load_baseline` return a `GoldenRun` and a `Baseline` instead of a list and a dict.
+
+### Added
+
+- `match_type: snapshot`: compare a tool's output against what `--update-baseline` recorded, with no
+  hand-written expected text.
+- `expect_error`: a case can require the tool to fail, and the error text still has to match.
+- Normalizers (`trim`, `tmp_paths`, `regex`, `ignore_keys`) at the file level and per case, applied to
+  both sides of a comparison.
+- Contract capture and diff: protocol version, server info, capabilities and every tool from
+  `tools/list` are stored in the baseline, and changes are printed as warnings. `--strict-contract`
+  fails the run on them, `contract_ignore` silences a path.
+- Contract lint: flags a `$schema` other than 2020-12, root-level `allOf`/`if`/`not`, an `inputSchema`
+  that is not an object, and structured content that is missing or violates the `outputSchema`.
+- `lint` command, to check a server's contract without a golden set.
+- `compare` command, to run one golden set against two servers and report differences in output and contract.
+- `init --command` and `init --url`, to write a golden set from a live server's tool list. Only
+  tools marked read-only are enabled, the rest are commented stubs.
+- A GitHub Action (`action.yml`) that runs the gate and writes a job summary, and `--markdown-report`.
+- `run_eval_gate` declares tool annotations and takes `strict_contract`.
+
 ### Changed
 
 - `run --update-baseline` now refuses to record a baseline while any case fails, and exits 1.
@@ -15,9 +42,10 @@ All notable changes to this project are documented here. Format follows
   options, not a raw `TypeError`.
 - A server that can't start or that exits immediately gives one readable error (exit code 2)
   instead of a page of traceback.
-- `init` now writes a golden set that runs as is against the official MCP reference server.
+- `init` with no server writes a golden set that runs as is against the official MCP reference server.
+- A corrupt baseline file, or a golden set with no cases, exits 2 with a readable message.
 
-### Added
+### Added (earlier, unreleased)
 
 - Per-case `timeout_seconds` (default 30). A tool that hangs now fails its own case with a
   "timed out" message instead of stalling the run. Other MCP protocol errors also fail the case

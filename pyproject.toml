@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "mcp>=2.0",
+    "jsonschema>=4.0",
     "pyyaml>=6.0",
     "click>=8.1",
     "rich>=13.7",
@@ -43,6 +44,9 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.7",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 115
