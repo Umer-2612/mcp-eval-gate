@@ -17,6 +17,7 @@
   <a href="https://github.com/Umer-2612/mcp-eval-gate/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Umer-2612/mcp-eval-gate/ci.yml?branch=main&label=CI" alt="CI status"/></a>
   <a href="https://github.com/Umer-2612/mcp-eval-gate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Umer-2612/mcp-eval-gate" alt="License"/></a>
   <a href="https://medium.com/@karachiwalaumer2612/mcp-server-testing-in-ci-the-bug-no-schema-check-can-see-39cfce248043"><img src="https://img.shields.io/badge/Medium_Write--up-000000?logo=medium&logoColor=white" alt="Medium write-up"/></a>
+  <a href="https://m8ven.ai/mcp/umer-2612/mcp-eval-gate"><img src="https://m8ven.ai/badge/mcp/umer-2612/mcp-eval-gate" alt="M8ven Score"/></a>
 </p>
 
 Read the write-up: [MCP server testing in CI: the bug no schema check can see](https://medium.com/@karachiwalaumer2612/mcp-server-testing-in-ci-the-bug-no-schema-check-can-see-39cfce248043).
