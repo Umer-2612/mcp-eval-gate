@@ -34,7 +34,7 @@ def load_baseline(path: Path) -> Baseline:
     if not path.exists():
         return Baseline()
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as exc:
         raise BaselineError(f"baseline file {path} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
@@ -65,7 +65,7 @@ def save_baseline(path: Path, results: list[CaseResult], contract: dict | None =
     data: dict = {"version": FORMAT_VERSION, "cases": {r.case_id: _dump_case(r) for r in results}}
     if contract is not None:
         data["contract"] = contract
-    path.write_text(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    path.write_text(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def _dump_case(result: CaseResult) -> dict:

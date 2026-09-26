@@ -11,7 +11,7 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
-from mcp_eval_gate.baseline import BaselineError, load_baseline, save_baseline
+from mcp_eval_gate.baseline import Baseline, BaselineError, load_baseline, save_baseline
 from mcp_eval_gate.errors import friendly_run_error
 from mcp_eval_gate.gate import assess, should_fail
 from mcp_eval_gate.golden_set import GoldenSetError, load_golden_set, require_cases
@@ -44,7 +44,7 @@ async def run_eval_gate(
     """
     try:
         config = require_cases(load_golden_set(Path(config_path)))
-        baseline = load_baseline(Path(baseline_path))
+        baseline = Baseline() if update_baseline else load_baseline(Path(baseline_path))
     except (GoldenSetError, BaselineError) as exc:
         return {"ok": False, "error": str(exc)}
 
@@ -63,6 +63,14 @@ async def run_eval_gate(
 
     results = golden_run.results
     if update_baseline:
+        failed = [r.case_id for r in results if not r.passed]
+        if failed:
+            return {
+                "ok": False,
+                "error": f"baseline not updated: {len(failed)} case(s) failed ({', '.join(failed)}). "
+                "A baseline should record known-good output, so fix these first.",
+                "cases": _serialize_results(results),
+            }
         save_baseline(Path(baseline_path), results, contract=golden_run.contract)
         return {"ok": True, "baseline_updated": True, "cases": _serialize_results(results)}
 

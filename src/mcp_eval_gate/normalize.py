@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 
 DEFAULT_REPLACEMENT = "<normalized>"
-TMP_PATH_PATTERN = re.compile(r"(?:/private)?(?:/var/folders/[^/\s]+/[^/\s]+/T|/tmp)/[^/\s]+")
+TMP_PATH_PATTERN = re.compile(r"(?<![\w.:/-])(?:/private)?(?:/var/folders/[^/\s]+/[^/\s]+/T|/tmp)/[^/\s]+")
 TMP_PLACEHOLDER = "<tmp>"
 
 
@@ -45,7 +45,10 @@ def _parse_one(item: object) -> Normalizer:
             pattern = re.compile(item["regex"])
         except re.error as exc:
             raise NormalizeError(f"invalid regex {item['regex']!r}: {exc}") from exc
-        return Normalizer("regex", pattern=pattern, replacement=item.get("replace", DEFAULT_REPLACEMENT))
+        replacement = item.get("replace", DEFAULT_REPLACEMENT)
+        if not isinstance(replacement, str):
+            raise NormalizeError(f"replace for regex {item['regex']!r} must be text")
+        return Normalizer("regex", pattern=pattern, replacement=replacement)
     if isinstance(item, dict) and set(item) == {"ignore_keys"}:
         keys = item["ignore_keys"]
         if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
@@ -61,16 +64,28 @@ def apply_normalizers(text: str, normalizers: tuple[Normalizer, ...]) -> str:
         if normalizer.kind == "trim":
             text = text.strip()
         elif normalizer.kind == "regex" and normalizer.pattern is not None:
-            text = normalizer.pattern.sub(normalizer.replacement, text)
+            text = normalizer.pattern.sub(lambda _match, r=normalizer.replacement: r, text)
         elif normalizer.kind == "ignore_keys":
             text = _drop_keys_from_json_text(text, normalizer.keys)
     return text
 
 
 def normalize_structured(value: object, normalizers: tuple[Normalizer, ...]) -> object:
+    """Apply the same normalizers to structured content: drop ignored keys, then rewrite string values."""
     for normalizer in normalizers:
         if normalizer.kind == "ignore_keys":
             value = _drop_keys(value, normalizer.keys)
+    text_normalizers = tuple(n for n in normalizers if n.kind != "ignore_keys")
+    return _map_strings(value, lambda text: apply_normalizers(text, text_normalizers))
+
+
+def _map_strings(value: object, transform) -> object:
+    if isinstance(value, str):
+        return transform(value)
+    if isinstance(value, dict):
+        return {k: _map_strings(v, transform) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_map_strings(v, transform) for v in value]
     return value
 
 

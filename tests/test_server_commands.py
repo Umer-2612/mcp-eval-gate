@@ -51,7 +51,7 @@ def test_init_from_a_server_writes_a_golden_set_that_loads(tmp_path, monkeypatch
     assert config.server.command == "my-server"
     assert config.server.args == ("--flag",)
     enabled = {c.tool_name for c in config.cases}
-    assert enabled == {"list_items", "ping"}
+    assert enabled == {"list_items"}
     assert all(c.match_type.value == "snapshot" for c in config.cases)
 
 
@@ -63,9 +63,11 @@ def test_init_from_a_server_leaves_stubs_for_tools_that_need_arguments_or_change
     text = out.read_text()
 
     assert "# - id: search" in text
-    assert "required: query" in text
+    assert "Required arguments: query" in text
     assert "# - id: delete_all" in text
-    assert "changes state" in text
+    assert "changing state" in text
+    assert "# - id: ping" in text
+    assert "not marked read-only" in text
     assert yaml.safe_load(text)["server"]["command"] == "my-server"
 
 
@@ -222,5 +224,32 @@ def test_lint_works_from_a_config_that_has_no_enabled_cases(tmp_path, monkeypatc
     (tmp_path / "golden_set.yaml").write_text("server:\n  command: node\ncases:\n")
 
     result = CliRunner().invoke(cli.main, ["lint", "--config", str(tmp_path / "golden_set.yaml")])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_compare_treats_a_case_that_cannot_run_on_server_a_as_a_failure(tmp_path, monkeypatch):
+    _patch(monkeypatch, compare.runner, lambda target: build_echo_server())
+    config = tmp_path / "golden_set.yaml"
+    config.write_text(
+        "server:\n  command: server-a\ncases:\n"
+        "  - id: hangs\n    tool_name: slow\n    tool_args: {seconds: 30}\n"
+        "    match_type: snapshot\n    timeout_seconds: 0.3\n"
+    )
+
+    result = CliRunner().invoke(cli.main, ["compare", "--config", str(config), "--against", "server-b"])
+
+    assert result.exit_code == 1
+    assert "could not run against A" in result.output
+
+
+def test_compare_accepts_cases_that_have_no_expected_output(tmp_path, monkeypatch):
+    _patch(monkeypatch, compare.runner, lambda target: _variant_server(0))
+    config = tmp_path / "golden_set.yaml"
+    config.write_text(
+        "server:\n  command: server-a\ncases:\n  - id: add\n    tool_name: add\n    tool_args: {a: 1, b: 2}\n"
+    )
+
+    result = CliRunner().invoke(cli.main, ["compare", "--config", str(config), "--against", "server-b"])
 
     assert result.exit_code == 0, result.output

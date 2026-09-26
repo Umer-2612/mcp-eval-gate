@@ -27,9 +27,10 @@ async def fetch_contract(target: ServerTarget) -> dict:
 
 def render_golden_set(target: ServerTarget, contract: dict) -> str:
     header = (
-        "# Generated from the server's tool list. Every enabled case calls the tool for real,\n"
-        "# so read them before running. Cases are snapshots: run `mcp-eval-gate run --update-baseline`\n"
-        "# once to record the current output, then `mcp-eval-gate run` gates on changes.\n"
+        "# Generated from the server's tool list. Only tools the server marks read-only are enabled,\n"
+        "# the rest are commented out. Every enabled case calls the tool for real.\n"
+        "# Cases are snapshots: run `mcp-eval-gate run --update-baseline` once to record the current\n"
+        "# output, then `mcp-eval-gate run` gates on changes.\n"
     )
     server_block = yaml.safe_dump({"server": _server_dict(target)}, sort_keys=False)
     tools = [contract["tools"][name] for name in contract.get("toolOrder", [])]
@@ -50,7 +51,14 @@ def _render_tool(tool: dict) -> str:
     name = tool["name"]
     required = tool.get("inputSchema", {}).get("required", [])
     if _changes_state(tool):
-        return _stub(name, {}, note="the server marks this tool as one that changes state, enable it on purpose")
+        return _stub(name, {}, note="the server marks this tool as changing state, enable it on purpose")
+    if not _is_read_only(tool):
+        needs = f" Required arguments: {', '.join(required)}." if required else ""
+        return _stub(
+            name,
+            _placeholder_args(tool, required),
+            note=f"not marked read-only by the server, enable it once you know it is safe to call.{needs}",
+        )
     if required:
         args = _placeholder_args(tool, required)
         return _stub(name, args, note=f"required: {', '.join(required)}")
@@ -62,6 +70,10 @@ def _render_tool(tool: dict) -> str:
             "    match_type: snapshot",
         ]
     )
+
+
+def _is_read_only(tool: dict) -> bool:
+    return (tool.get("annotations") or {}).get("readOnlyHint") is True
 
 
 def _changes_state(tool: dict) -> bool:

@@ -41,8 +41,8 @@ contract checked next to it.
 ## How it works
 
 1. `init --command "<how you start your server>"` lists the server's tools and writes a
-   `golden_set.yaml` with one case per tool that needs no arguments, and a commented stub for
-   the rest.
+   `golden_set.yaml`. Tools the server marks read-only and that need no arguments become cases.
+   Every other tool is a commented stub, since a case calls the tool for real.
 2. `run --update-baseline` calls every tool and records what came back, once, while
    everything is known to be good. The baseline keeps the raw output, the structured content,
    whether it was an error, and the server's contract.
@@ -200,8 +200,8 @@ mcp-eval-gate lint --url http://localhost:3000/mcp
 
 `compare` runs your golden set against two servers and reports where their behavior differs.
 Server A is the `server` block of the golden set, server B is passed on the command line.
-Every case is treated as a snapshot, A's output is the reference, so no expected values are
-needed. Use it for an old and a new SDK version, or a release and its candidate.
+Every case is treated as a snapshot, A's output is the reference, so cases need no expected
+values. A case that can't run on A counts as a failure. Use it for an old and a new SDK version, or a release and its candidate.
 
 ```bash
 mcp-eval-gate compare --config golden_set.yaml --against "node dist-next/index.js"
@@ -277,8 +277,8 @@ of bug occurs.
 
 - Output that varies between runs needs a normalizer, and you write it. There is no automatic
   detection of timestamps or ids.
-- `snapshot`, `exact` and `contains` compare the text and structured content a tool returns.
-  There is no check of resources or prompts.
+- `snapshot` compares the text and the structured content a tool returns. `exact` and
+  `contains` compare the text only. There is no check of resources or prompts.
 - The contract check reads what the server declares. It can't see how a particular client
   reacts to it beyond the lint rules above.
 - `match_type: judge` has only been tested against a stub client, not the live Anthropic API.

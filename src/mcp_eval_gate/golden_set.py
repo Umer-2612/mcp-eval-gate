@@ -18,17 +18,17 @@ class GoldenSetError(ValueError):
     """Raised when a golden-set file is missing, malformed, or fails validation."""
 
 
-def load_golden_set(path: Path) -> GoldenSetConfig:
+def load_golden_set(path: Path, *, require_expectations: bool = True) -> GoldenSetConfig:
     if not path.exists():
         raise GoldenSetError(f"golden set file not found: {path}")
 
-    raw = yaml.safe_load(path.read_text()) or {}
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
     if "server" not in raw:
         raise GoldenSetError("golden set file is missing the required `server` block")
 
     server = _parse_server(raw["server"])
-    cases = tuple(_parse_case(raw_case) for raw_case in raw.get("cases") or [])
+    cases = tuple(_parse_case(raw_case, require_expectations) for raw_case in raw.get("cases") or [])
     _reject_duplicate_ids(cases)
 
     try:
@@ -66,7 +66,7 @@ def _parse_server(raw_server: dict) -> ServerTarget:
         raise GoldenSetError(str(exc)) from exc
 
 
-def _parse_case(raw_case: dict) -> GoldenCase:
+def _parse_case(raw_case: dict, require_expectations: bool = True) -> GoldenCase:
     case_id = raw_case.get("id", "<unknown>")
     missing = [field for field in REQUIRED_CASE_FIELDS if field not in raw_case]
     if missing:
@@ -95,7 +95,8 @@ def _parse_case(raw_case: dict) -> GoldenCase:
         raise GoldenSetError(f"case '{case_id}' has a non-boolean expect_error, use true or false")
 
     case = GoldenCase(**{**raw_case, "match_type": match_type, "normalize": normalize})
-    _require_expectation(case)
+    if require_expectations:
+        _require_expectation(case)
     return case
 
 

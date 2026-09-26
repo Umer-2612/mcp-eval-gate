@@ -115,3 +115,34 @@ async def test_run_eval_gate_declares_tool_annotations():
     assert annotations.destructive_hint is True
     assert annotations.idempotent_hint is True
     assert annotations.open_world_hint is True
+
+
+@pytest.mark.anyio
+async def test_run_eval_gate_refuses_to_record_a_baseline_while_a_case_fails(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(GOLDEN_SET.replace('expected_output: "hello"', 'expected_output: "never"'))
+    baseline_path = tmp_path / "baseline.json"
+
+    result = await mcp_server.run_eval_gate(
+        config_path=str(config_path), baseline_path=str(baseline_path), update_baseline=True
+    )
+
+    assert result["ok"] is False
+    assert "baseline not updated" in result["error"]
+    assert not baseline_path.exists()
+
+
+@pytest.mark.anyio
+async def test_run_eval_gate_can_repair_a_corrupt_baseline_with_update_baseline(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    config_path = tmp_path / "golden_set.yaml"
+    config_path.write_text(GOLDEN_SET)
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text("{oops")
+
+    result = await mcp_server.run_eval_gate(
+        config_path=str(config_path), baseline_path=str(baseline_path), update_baseline=True
+    )
+
+    assert result["ok"] is True

@@ -132,3 +132,13 @@ def test_a_corrupt_baseline_gives_a_readable_error(tmp_path):
 
     with pytest.raises(BaselineError, match="not valid JSON"):
         load_baseline(path)
+
+
+def test_baseline_round_trips_non_ascii_text_regardless_of_the_locale_encoding(tmp_path):
+    path = tmp_path / "baseline.json"
+    outcome = ToolCallOutcome(text="界 🚀", structured=None, is_error=False)
+
+    save_baseline(path, [CaseResult("c1", score=1.0, passed=True, detail="ok", outcome=outcome)])
+
+    assert "界 🚀".encode() in path.read_bytes()
+    assert load_baseline(path).outcomes["c1"] == outcome

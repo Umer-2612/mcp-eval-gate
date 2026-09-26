@@ -23,7 +23,7 @@ class Comparison:
     contract_changes: list[ContractChange]
 
     def is_identical(self) -> bool:
-        return not self.differences and not self.contract_changes
+        return not self.differences and not self.contract_changes and not self.skipped
 
 
 async def compare_servers(config: GoldenSetConfig, other: ServerTarget) -> Comparison:

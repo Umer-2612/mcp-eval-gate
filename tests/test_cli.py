@@ -321,3 +321,14 @@ def test_a_corrupt_baseline_exits_2_with_a_readable_error(tmp_path, monkeypatch)
     assert result.exit_code == 2
     assert "not valid JSON" in result.output
     assert "Traceback" not in result.output
+
+
+def test_update_baseline_can_repair_a_corrupt_baseline(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text(SNAPSHOT_SET)
+    (tmp_path / "baseline.json").write_text("<<<<<<< merge conflict")
+
+    result = _run(tmp_path, "--update-baseline")
+
+    assert result.exit_code == 0, result.output
+    assert json.loads((tmp_path / "baseline.json").read_text())["version"] == 2

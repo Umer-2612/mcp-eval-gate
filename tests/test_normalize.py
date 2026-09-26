@@ -70,3 +70,30 @@ def test_normalizers_apply_in_the_order_they_are_listed():
 def test_invalid_normalizer_definitions_raise_a_readable_error(raw, message):
     with pytest.raises(NormalizeError, match=message):
         parse_normalizers(raw)
+
+
+def test_regex_and_tmp_normalizers_also_apply_to_structured_string_values():
+    from mcp_eval_gate.normalize import normalize_structured
+
+    normalizers = parse_normalizers([{"regex": r"\d{4}-\d{2}-\d{2}", "replace": "<date>"}, "tmp_paths"])
+    value = {"ts": "on 2026-01-02", "items": [{"path": "/tmp/tmpab12/x"}], "n": 3}
+
+    assert normalize_structured(value, normalizers) == {"ts": "on <date>", "items": [{"path": "<tmp>/x"}], "n": 3}
+
+
+def test_a_replacement_is_used_literally_not_as_a_regex_template():
+    normalizers = parse_normalizers([{"regex": r"\d+", "replace": r"C:\tmp \1"}])
+
+    assert apply_normalizers("id 42", normalizers) == r"id C:\tmp \1"
+
+
+def test_a_non_string_replacement_is_rejected():
+    with pytest.raises(NormalizeError, match="replace"):
+        parse_normalizers([{"regex": "a", "replace": None}])
+
+
+def test_tmp_paths_leaves_paths_that_merely_contain_a_tmp_segment():
+    normalizers = parse_normalizers(["tmp_paths"])
+    text = "/home/u/tmp/data and s3://bucket/tmp/x and /opt/app/tmp/y"
+
+    assert apply_normalizers(text, normalizers) == text

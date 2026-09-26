@@ -9,7 +9,7 @@ from pathlib import Path
 import anyio
 import click
 
-from mcp_eval_gate.baseline import BaselineError, load_baseline, save_baseline
+from mcp_eval_gate.baseline import Baseline, BaselineError, load_baseline, save_baseline
 from mcp_eval_gate.compare import compare_servers
 from mcp_eval_gate.contract import lint_contract
 from mcp_eval_gate.discover import fetch_contract, render_golden_set
@@ -103,7 +103,7 @@ def run(
 ) -> None:
     """Run the golden set against a live MCP server and gate on regressions."""
     config = _load_config_or_exit(config_path)
-    baseline = _load_baseline_or_exit(baseline_path)
+    baseline = Baseline() if update_baseline else _load_baseline_or_exit(baseline_path)
 
     golden_run = _run_or_exit(
         config,
@@ -143,9 +143,9 @@ def run(
     sys.exit(1 if should_fail(golden_run, assessment, strict_contract=strict_contract) else 0)
 
 
-def _load_config_or_exit(config_path: Path, *, need_cases: bool = True):
+def _load_config_or_exit(config_path: Path, *, need_cases: bool = True, require_expectations: bool = True):
     try:
-        config = load_golden_set(config_path)
+        config = load_golden_set(config_path, require_expectations=require_expectations)
         return require_cases(config) if need_cases else config
     except GoldenSetError as exc:
         click.secho(f"error: {exc}", fg="red", err=True)
@@ -242,7 +242,7 @@ def compare(config_path: Path, against: str | None, against_url: str | None) -> 
     """Run the golden set against two servers (A is the config's server) and report what differs."""
     if bool(against) == bool(against_url):
         raise click.UsageError("give exactly one of --against and --against-url")
-    config = _load_config_or_exit(config_path)
+    config = _load_config_or_exit(config_path, require_expectations=False)
     other = _target_from_options(against, against_url, env=config.server.env)
 
     try:

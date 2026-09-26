@@ -243,3 +243,14 @@ def test_tool_error_detail_truncates_a_long_error_message():
 
     assert result.passed is False
     assert len(result.detail) < 400
+
+
+def test_snapshot_applies_text_normalizers_to_structured_content_too():
+    case = _case(match_type=MatchType.SNAPSHOT, expected_output=None)
+    recorded = ToolCallOutcome(text="at 2026-01-01", structured={"ts": "2026-01-01"}, is_error=False)
+    current = ToolCallOutcome(text="at 2026-09-26", structured={"ts": "2026-09-26"}, is_error=False)
+    normalizers = parse_normalizers([{"regex": r"\d{4}-\d{2}-\d{2}", "replace": "<date>"}])
+
+    result = score_case(case, current, recorded=recorded, normalizers=normalizers)
+
+    assert result.passed is True

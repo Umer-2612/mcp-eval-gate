@@ -28,7 +28,8 @@ All notable changes to this project are documented here. Format follows
   that is not an object, and structured content that is missing or violates the `outputSchema`.
 - `lint` command, to check a server's contract without a golden set.
 - `compare` command, to run one golden set against two servers and report differences in output and contract.
-- `init --command` and `init --url`, to write a golden set from a live server's tool list.
+- `init --command` and `init --url`, to write a golden set from a live server's tool list. Only
+  tools marked read-only are enabled, the rest are commented stubs.
 - A GitHub Action (`action.yml`) that runs the gate and writes a job summary, and `--markdown-report`.
 - `run_eval_gate` declares tool annotations and takes `strict_contract`.
 
