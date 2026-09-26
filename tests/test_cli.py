@@ -87,7 +87,7 @@ def test_run_update_baseline_writes_current_scores(tmp_path, monkeypatch):
     )
 
     assert result.exit_code == 0
-    assert json.loads(baseline_path.read_text()) == {"echo-case": 1.0}
+    assert json.loads(baseline_path.read_text())["cases"]["echo-case"]["score"] == 1.0
 
 
 def test_run_writes_html_report_when_requested(tmp_path, monkeypatch):
@@ -207,4 +207,117 @@ def test_a_server_that_exits_immediately_gives_a_readable_error(tmp_path):
 
     assert result.exit_code == 2
     assert "could not run" in result.output.lower()
+    assert "Traceback" not in result.output
+
+
+SNAPSHOT_SET = """\
+server:
+  command: unused
+cases:
+  - id: add-snap
+    tool_name: add
+    tool_args: {a: 2, b: 3}
+    match_type: snapshot
+"""
+
+
+def _run(tmp_path, *extra):
+    return CliRunner().invoke(
+        cli.main,
+        [
+            "run",
+            "--config",
+            str(tmp_path / "golden_set.yaml"),
+            "--baseline",
+            str(tmp_path / "baseline.json"),
+            *extra,
+        ],
+    )
+
+
+def test_snapshot_case_is_recorded_by_update_baseline_then_gated_on_later_runs(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text(SNAPSHOT_SET)
+
+    recorded = _run(tmp_path, "--update-baseline")
+    saved = json.loads((tmp_path / "baseline.json").read_text())
+    unchanged = _run(tmp_path)
+
+    assert recorded.exit_code == 0
+    assert saved["version"] == 2
+    assert saved["cases"]["add-snap"]["outcome"]["text"] == "5"
+    assert saved["contract"]["serverInfo"]["name"] == "echo-test-server"
+    assert unchanged.exit_code == 0
+
+
+def test_snapshot_case_fails_the_run_when_the_output_drifts_from_the_recording(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text(SNAPSHOT_SET)
+    _run(tmp_path, "--update-baseline")
+    baseline_file = tmp_path / "baseline.json"
+    saved = json.loads(baseline_file.read_text())
+    saved["cases"]["add-snap"]["outcome"]["text"] = "6"
+    baseline_file.write_text(json.dumps(saved))
+
+    result = _run(tmp_path)
+
+    assert result.exit_code == 1
+    assert "add-snap" in result.output
+    assert "first difference" in result.output
+
+
+def test_contract_drift_is_a_warning_by_default_and_a_failure_with_strict_contract(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text(SNAPSHOT_SET)
+    _run(tmp_path, "--update-baseline")
+    baseline_file = tmp_path / "baseline.json"
+    saved = json.loads(baseline_file.read_text())
+    saved["contract"]["serverInfo"]["version"] = "9.9.9"
+    baseline_file.write_text(json.dumps(saved))
+
+    lenient = _run(tmp_path)
+    strict = _run(tmp_path, "--strict-contract")
+
+    assert lenient.exit_code == 0
+    assert "serverInfo.version" in lenient.output
+    assert strict.exit_code == 1
+
+
+def test_contract_ignore_silences_a_known_noisy_path(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text("contract_ignore: [serverInfo.version]\n" + SNAPSHOT_SET)
+    _run(tmp_path, "--update-baseline")
+    baseline_file = tmp_path / "baseline.json"
+    saved = json.loads(baseline_file.read_text())
+    saved["contract"]["serverInfo"]["version"] = "9.9.9"
+    baseline_file.write_text(json.dumps(saved))
+
+    result = _run(tmp_path, "--strict-contract")
+
+    assert result.exit_code == 0
+    assert "serverInfo.version" not in result.output
+
+
+def test_run_writes_a_markdown_report_for_ci_summaries(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text(SNAPSHOT_SET)
+    report = tmp_path / "summary.md"
+
+    _run(tmp_path, "--update-baseline")
+    _run(tmp_path, "--markdown-report", str(report))
+
+    text = report.read_text()
+    assert "add-snap" in text
+    assert "| Case |" in text
+
+
+def test_a_corrupt_baseline_exits_2_with_a_readable_error(tmp_path, monkeypatch):
+    _patch_connect(monkeypatch)
+    (tmp_path / "golden_set.yaml").write_text(SNAPSHOT_SET)
+    (tmp_path / "baseline.json").write_text("{oops")
+
+    result = _run(tmp_path)
+
+    assert result.exit_code == 2
+    assert "not valid JSON" in result.output
     assert "Traceback" not in result.output

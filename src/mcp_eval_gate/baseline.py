@@ -1,30 +1,82 @@
 """Load/save a committed baseline and diff a fresh run against it.
 
-A baseline is a simple {case_id: score} snapshot, checked into the repo
-alongside the golden set, so "did this change make things worse" is a
-git-diffable question instead of a moving target.
+The baseline is checked into the repo next to the golden set, so "did this change make things
+worse" is a git-diffable question. Format version 2 keeps each case's score and its raw outcome
+(text, structured content, error flag), plus the server's contract when one was captured.
+Legacy files, a plain {case_id: score} map, still load.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from mcp_eval_gate.models import CaseResult, Regression
+from mcp_eval_gate.models import CaseResult, Regression, ToolCallOutcome
 
 DEFAULT_THRESHOLD = 0.0
 IMPLICIT_BASELINE_FOR_NEW_CASES = 1.0
+FORMAT_VERSION = 2
 
 
-def load_baseline(path: Path) -> dict[str, float]:
+class BaselineError(ValueError):
+    """Raised when a baseline file can't be read."""
+
+
+@dataclass(frozen=True)
+class Baseline:
+    scores: dict[str, float] = field(default_factory=dict)
+    outcomes: dict[str, ToolCallOutcome] = field(default_factory=dict)
+    contract: dict | None = None
+
+
+def load_baseline(path: Path) -> Baseline:
     if not path.exists():
-        return {}
-    return json.loads(path.read_text())
+        return Baseline()
+    try:
+        data = json.loads(path.read_text())
+    except ValueError as exc:
+        raise BaselineError(f"baseline file {path} is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise BaselineError(f"baseline file {path} is not a JSON object")
+
+    if "version" not in data:
+        return Baseline(scores={case_id: float(score) for case_id, score in data.items()})
+    if data["version"] > FORMAT_VERSION:
+        raise BaselineError(
+            f"baseline file {path} was written by a newer mcp-eval-gate (format {data['version']}), please upgrade"
+        )
+
+    cases = data.get("cases", {})
+    return Baseline(
+        scores={case_id: float(entry["score"]) for case_id, entry in cases.items()},
+        outcomes={
+            case_id: _load_outcome(entry["outcome"]) for case_id, entry in cases.items() if entry.get("outcome")
+        },
+        contract=data.get("contract"),
+    )
 
 
-def save_baseline(path: Path, results: list[CaseResult]) -> None:
-    baseline = {result.case_id: result.score for result in results}
-    path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
+def _load_outcome(raw: dict) -> ToolCallOutcome:
+    return ToolCallOutcome(text=raw["text"], structured=raw.get("structured"), is_error=bool(raw["is_error"]))
+
+
+def save_baseline(path: Path, results: list[CaseResult], contract: dict | None = None) -> None:
+    data: dict = {"version": FORMAT_VERSION, "cases": {r.case_id: _dump_case(r) for r in results}}
+    if contract is not None:
+        data["contract"] = contract
+    path.write_text(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+
+
+def _dump_case(result: CaseResult) -> dict:
+    entry: dict = {"score": result.score}
+    if result.outcome is not None:
+        entry["outcome"] = {
+            "is_error": result.outcome.is_error,
+            "text": result.outcome.text,
+            "structured": result.outcome.structured,
+        }
+    return entry
 
 
 def diff_against_baseline(

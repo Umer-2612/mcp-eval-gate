@@ -117,7 +117,7 @@ async def test_run_golden_set_connects_once_and_scores_every_case(monkeypatch):
         ),
     )
 
-    results = await runner_module.run_golden_set(config)
+    results = (await runner_module.run_golden_set(config)).results
 
     assert [r.case_id for r in results] == ["c1", "c2"]
     assert all(r.passed for r in results)
@@ -208,3 +208,89 @@ async def test_a_non_timeout_protocol_error_fails_the_case_instead_of_crashing(m
     assert result.passed is False
     assert "-32602" in result.detail
     assert "Invalid params" in result.detail
+
+
+def _patch_connect(monkeypatch):
+    from mcp_eval_gate import runner
+
+    monkeypatch.setattr(runner, "connect", lambda target: connected_session(build_echo_server()))
+
+
+@pytest.mark.anyio
+async def test_run_golden_set_returns_results_and_the_server_contract(monkeypatch):
+    from mcp_eval_gate.runner import run_golden_set
+
+    _patch_connect(monkeypatch)
+    case = GoldenCase(id="e", tool_name="echo", tool_args={"message": "hi"}, expected_output="hi")
+
+    run = await run_golden_set(_config(case))
+
+    assert [r.passed for r in run.results] == [True]
+    assert run.results[0].outcome.text == "hi"
+    assert run.contract["serverInfo"]["name"] == "echo-test-server"
+
+
+@pytest.mark.anyio
+async def test_snapshot_cases_record_then_compare_against_the_recorded_outcome(monkeypatch):
+    from mcp_eval_gate.runner import run_golden_set
+
+    _patch_connect(monkeypatch)
+    case = GoldenCase(id="s", tool_name="add", tool_args={"a": 2, "b": 3}, match_type=MatchType.SNAPSHOT)
+    config = _config(case)
+
+    recorded = await run_golden_set(config, recording=True)
+    same = await run_golden_set(config, recorded_outcomes={"s": recorded.results[0].outcome})
+    drifted_outcome = recorded.results[0].outcome.__class__(text="6", structured=None, is_error=False)
+    drifted = await run_golden_set(config, recorded_outcomes={"s": drifted_outcome})
+
+    assert recorded.results[0].passed is True
+    assert same.results[0].passed is True
+    assert drifted.results[0].passed is False
+
+
+@pytest.mark.anyio
+async def test_a_protocol_error_satisfies_an_expect_error_case_but_a_timeout_never_does(monkeypatch):
+    from mcp_eval_gate.runner import run_golden_set
+
+    _patch_connect(monkeypatch)
+    unknown_tool = GoldenCase(
+        id="bad", tool_name="no_such_tool", expected_output="", match_type=MatchType.SNAPSHOT, expect_error=True
+    )
+    hangs = GoldenCase(
+        id="hang",
+        tool_name="slow",
+        tool_args={"seconds": 30},
+        expected_output="x",
+        expect_error=True,
+        timeout_seconds=0.3,
+    )
+
+    run = await run_golden_set(_config(unknown_tool, hangs), recording=True)
+
+    by_id = {r.case_id: r for r in run.results}
+    assert by_id["bad"].passed is True
+    assert by_id["hang"].passed is False
+    assert "timed out" in by_id["hang"].detail
+
+
+@pytest.mark.anyio
+async def test_case_level_normalizers_are_applied_on_top_of_file_level_ones(monkeypatch):
+    from mcp_eval_gate.normalize import parse_normalizers
+    from mcp_eval_gate.runner import run_golden_set
+
+    _patch_connect(monkeypatch)
+    case = GoldenCase(
+        id="n",
+        tool_name="echo",
+        tool_args={"message": "  hi  "},
+        match_type=MatchType.EXACT,
+        expected_output="hi",
+        normalize=parse_normalizers(["tmp_paths"]),
+    )
+    config = GoldenSetConfig(
+        server=ServerTarget(command="unused"), cases=(case,), normalize=parse_normalizers(["trim"])
+    )
+
+    run = await run_golden_set(config)
+
+    assert run.results[0].passed is True
