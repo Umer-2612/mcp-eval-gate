@@ -74,7 +74,10 @@ def test_diff_skips_ignored_paths_and_everything_below_them():
 
 def test_lint_flags_a_draft_07_schema_dialect():
     contract = _contract(
-        t={"inputSchema": {"type": "object"}, "outputSchema": {"$schema": "http://json-schema.org/draft-07/schema#"}}
+        t={
+            "inputSchema": {"type": "object"},
+            "outputSchema": {"$schema": "http://json-schema.org/draft-07/schema#"},
+        }
     )
 
     findings = lint_contract(contract)
@@ -139,3 +142,36 @@ def test_lint_call_is_quiet_for_valid_output_and_for_error_results():
     assert lint_call("t", ToolCallOutcome(text="x", structured={"n": 1}, is_error=False), contract) == []
     assert lint_call("t", ToolCallOutcome(text="boom", structured=None, is_error=True), contract) == []
     assert lint_call("unknown", ToolCallOutcome(text="x", structured=None, is_error=False), contract) == []
+
+
+def test_lint_call_flags_an_unresolvable_ref_instead_of_crashing():
+    contract = _contract(t={"outputSchema": {"$ref": "#/$defs/missing"}})
+    outcome = ToolCallOutcome(text="x", structured={"n": 1}, is_error=False)
+
+    findings = lint_call("t", outcome, contract)
+
+    assert len(findings) == 1
+    assert "outputSchema" in findings[0]
+
+
+class _FakePage:
+    def __init__(self, tools: list, next_cursor: str | None) -> None:
+        self.tools = tools
+        self.next_cursor = next_cursor
+
+
+class _RepeatingCursorSession:
+    """A misbehaving server that never advances past its first cursor."""
+
+    async def list_tools(self, params=None):
+        return _FakePage([], "same-cursor")
+
+
+@pytest.mark.anyio
+async def test_list_all_tools_raises_instead_of_hanging_on_a_repeated_cursor():
+    from mcp.shared.exceptions import MCPError
+
+    from mcp_eval_gate.contract import _list_all_tools
+
+    with pytest.raises(MCPError, match="cursor"):
+        await _list_all_tools(_RepeatingCursorSession())

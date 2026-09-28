@@ -22,6 +22,7 @@ from mcp_eval_gate.models import ToolCallOutcome
 SUPPORTED_DIALECT = "2020-12"
 ROOT_COMPOSITION_KEYWORDS = ("allOf", "anyOf", "oneOf", "not", "if", "then", "else")
 SCHEMA_FIELDS = ("inputSchema", "outputSchema")
+MAX_TOOL_LIST_PAGES = 1000
 
 
 @dataclass(frozen=True)
@@ -53,17 +54,19 @@ async def capture_contract(session: ClientSession) -> dict:
 
 async def _list_all_tools(session: ClientSession) -> list[dict]:
     tools: list[dict] = []
+    seen_cursors: set[str] = set()
     cursor: str | None = None
-    try:
-        while True:
-            params = PaginatedRequestParams(cursor=cursor) if cursor else None
-            page = await session.list_tools(params=params)
-            tools.extend(t.model_dump(mode="json", by_alias=True, exclude_unset=True) for t in page.tools)
-            cursor = page.next_cursor
-            if not cursor:
-                return tools
-    except MCPError:
-        return tools
+    for _ in range(MAX_TOOL_LIST_PAGES):
+        params = PaginatedRequestParams(cursor=cursor) if cursor else None
+        page = await session.list_tools(params=params)
+        tools.extend(t.model_dump(mode="json", by_alias=True, exclude_unset=True) for t in page.tools)
+        cursor = page.next_cursor
+        if not cursor:
+            return tools
+        if cursor in seen_cursors:
+            raise MCPError(-32603, f"tools/list repeated the cursor {cursor!r} instead of finishing")
+        seen_cursors.add(cursor)
+    raise MCPError(-32603, f"tools/list did not finish after {MAX_TOOL_LIST_PAGES} pages")
 
 
 def diff_contract(before: dict, after: dict, ignore: tuple[str, ...] = ()) -> list[ContractChange]:
@@ -136,6 +139,11 @@ def lint_call(tool_name: str, outcome: ToolCallOutcome, contract: dict) -> list[
         return [f"tool '{tool_name}' structuredContent does not match its outputSchema: {exc.message}"]
     except jsonschema.SchemaError as exc:
         return [f"tool '{tool_name}' outputSchema is not a valid JSON Schema: {exc.message}"]
+    except Exception as exc:
+        # A dangling $ref or another structural problem raises something outside jsonschema's own
+        # exception hierarchy (e.g. a referencing.exceptions.Unresolvable). A broken outputSchema is
+        # itself a finding, not a reason to crash the run.
+        return [f"tool '{tool_name}' outputSchema could not be checked: {exc}"]
     return []
 
 

@@ -40,12 +40,23 @@ def load_baseline(path: Path) -> Baseline:
     if not isinstance(data, dict):
         raise BaselineError(f"baseline file {path} is not a JSON object")
 
+    try:
+        return _parse_baseline(data)
+    except BaselineError as exc:
+        raise BaselineError(f"baseline file {path} {exc}") from exc
+    except (KeyError, TypeError, ValueError) as exc:
+        raise BaselineError(f"baseline file {path} has an unexpected shape: {exc}") from exc
+
+
+def _parse_baseline(data: dict) -> Baseline:
     if "version" not in data:
         return Baseline(scores={case_id: float(score) for case_id, score in data.items()})
-    if data["version"] > FORMAT_VERSION:
-        raise BaselineError(
-            f"baseline file {path} was written by a newer mcp-eval-gate (format {data['version']}), please upgrade"
-        )
+
+    version = data["version"]
+    if not isinstance(version, int):
+        raise ValueError(f"'version' must be an integer, got {version!r}")
+    if version > FORMAT_VERSION:
+        raise BaselineError(f"was written by a newer mcp-eval-gate (format {version}), please upgrade")
 
     cases = data.get("cases", {})
     return Baseline(

@@ -134,6 +134,30 @@ def test_a_corrupt_baseline_gives_a_readable_error(tmp_path):
         load_baseline(path)
 
 
+def test_a_legacy_baseline_with_a_non_numeric_score_gives_a_readable_error(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text(json.dumps({"c1": "not-a-number"}))
+
+    with pytest.raises(BaselineError, match="unexpected shape"):
+        load_baseline(path)
+
+
+def test_a_v2_baseline_missing_a_required_field_gives_a_readable_error(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text(json.dumps({"version": 2, "cases": {"c1": {}}}))
+
+    with pytest.raises(BaselineError, match="unexpected shape"):
+        load_baseline(path)
+
+
+def test_a_v2_baseline_with_a_non_integer_version_gives_a_readable_error(tmp_path):
+    path = tmp_path / "baseline.json"
+    path.write_text(json.dumps({"version": "2", "cases": {}}))
+
+    with pytest.raises(BaselineError, match="unexpected shape"):
+        load_baseline(path)
+
+
 def test_baseline_round_trips_non_ascii_text_regardless_of_the_locale_encoding(tmp_path):
     path = tmp_path / "baseline.json"
     outcome = ToolCallOutcome(text="界 🚀", structured=None, is_error=False)

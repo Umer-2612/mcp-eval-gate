@@ -45,6 +45,18 @@ All notable changes to this project are documented here. Format follows
 - `init` with no server writes a golden set that runs as is against the official MCP reference server.
 - A corrupt baseline file, or a golden set with no cases, exits 2 with a readable message.
 
+### Fixed
+
+- A baseline file that parses as JSON but has the wrong shape (a non-numeric score, a case missing
+  `score`, a `version` that isn't an integer) now exits 2 with a readable message instead of a raw
+  `ValueError`/`KeyError` traceback. This closes the same gap the "corrupt baseline" message above
+  was meant to cover, for baselines that are valid JSON but not a valid baseline.
+- Contract capture no longer hangs forever against a server whose `tools/list` pagination never
+  terminates. It also no longer silently truncates the tool list when a page fails; both now surface
+  as the run's usual "could not run the golden set" error instead of one or the other happening quietly.
+- `lint`/`run` no longer crash on a tool whose `outputSchema` has a dangling `$ref`. A schema that
+  can't be checked is reported as a lint finding, the same as a schema the tool fails against.
+
 ### Added (earlier, unreleased)
 
 - Per-case `timeout_seconds` (default 30). A tool that hangs now fails its own case with a

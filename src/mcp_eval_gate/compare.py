@@ -46,9 +46,7 @@ async def compare_servers(config: GoldenSetConfig, other: ServerTarget) -> Compa
 
 
 def _as_snapshots(config: GoldenSetConfig, expect_error: dict[str, bool]) -> GoldenSetConfig:
-    cases = tuple(
-        _snapshot_case(case, expect_error.get(case.id, False)) for case in config.cases
-    )
+    cases = tuple(_snapshot_case(case, expect_error.get(case.id, False)) for case in config.cases)
     return replace(config, cases=cases)
 
 
