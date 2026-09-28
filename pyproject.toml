@@ -1,6 +1,6 @@
 [project]
 name = "mcp-eval-gate"
-version = "0.3.0"
+version = "0.4.0"
 description = "CI regression gate for MCP servers: run a golden set of tool calls, diff against a baseline, fail the build on regression"
 readme = "README.md"
 license = "MIT"

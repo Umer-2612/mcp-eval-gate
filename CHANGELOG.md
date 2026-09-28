@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-29
+
 ### Breaking
 
 - The baseline file is now versioned and holds each case's raw output and the server's contract, not
@@ -32,6 +34,9 @@ All notable changes to this project are documented here. Format follows
   tools marked read-only are enabled, the rest are commented stubs.
 - A GitHub Action (`action.yml`) that runs the gate and writes a job summary, and `--markdown-report`.
 - `run_eval_gate` declares tool annotations and takes `strict_contract`.
+- Per-case `timeout_seconds` (default 30). A tool that hangs now fails its own case with a
+  "timed out" message instead of stalling the run. Other MCP protocol errors also fail the case
+  instead of crashing the run. Prompted by feedback on the Medium article.
 
 ### Changed
 
@@ -56,12 +61,6 @@ All notable changes to this project are documented here. Format follows
   as the run's usual "could not run the golden set" error instead of one or the other happening quietly.
 - `lint`/`run` no longer crash on a tool whose `outputSchema` has a dangling `$ref`. A schema that
   can't be checked is reported as a lint finding, the same as a schema the tool fails against.
-
-### Added (earlier, unreleased)
-
-- Per-case `timeout_seconds` (default 30). A tool that hangs now fails its own case with a
-  "timed out" message instead of stalling the run. Other MCP protocol errors also fail the case
-  instead of crashing the run. Prompted by feedback on the Medium article.
 
 ## [0.3.0] - 2026-09-24
 
@@ -122,7 +121,8 @@ what changed is what it connects to.
   Claude Code / Cursor.
 - Composite GitHub Action + example consumer workflow.
 
-[Unreleased]: https://github.com/Umer-2612/mcp-eval-gate/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Umer-2612/mcp-eval-gate/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Umer-2612/mcp-eval-gate/releases/tag/v0.1.0
