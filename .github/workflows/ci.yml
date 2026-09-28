@@ -28,3 +28,30 @@ jobs:
 
       - name: Build package
         run: uv build
+
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gate passes against an unchanged server
+        uses: ./
+        with:
+          config: tests/fixtures/action/golden_set.yaml
+          baseline: tests/fixtures/action/baseline.json
+          package: .
+
+      - name: Gate fails when the output drifted from the baseline
+        id: drifted
+        continue-on-error: true
+        uses: ./
+        with:
+          config: tests/fixtures/action/golden_set.yaml
+          baseline: tests/fixtures/action/baseline_drifted.json
+          package: .
+
+      - name: Check the drifted run really failed
+        if: steps.drifted.outcome != 'failure'
+        run: |
+          echo "the action should have failed on a drifted baseline"
+          exit 1

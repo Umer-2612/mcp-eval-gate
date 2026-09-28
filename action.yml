@@ -1,0 +1,52 @@
+name: mcp-eval-gate
+description: Call an MCP server's tools, compare the results to a recorded baseline, and fail the build on regressions.
+author: Umer Karachiwala
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  config:
+    description: Path to the golden set file.
+    default: golden_set.yaml
+  baseline:
+    description: Path to the recorded baseline file.
+    default: baseline.json
+  strict-contract:
+    description: Also fail on contract changes since the baseline and on contract warnings.
+    default: "false"
+  package:
+    description: What pip installs. Pin a version, for example mcp-eval-gate==0.4.0.
+    default: mcp-eval-gate
+  python-version:
+    description: Python version to run with (3.12 or newer).
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install mcp-eval-gate
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+      run: python -m pip install "$PACKAGE"
+
+    - name: Run the gate
+      shell: bash
+      env:
+        CONFIG: ${{ inputs.config }}
+        BASELINE: ${{ inputs.baseline }}
+        STRICT_CONTRACT: ${{ inputs.strict-contract }}
+      run: |
+        args=(run --config "$CONFIG" --baseline "$BASELINE")
+        if [ "$STRICT_CONTRACT" = "true" ]; then args+=(--strict-contract); fi
+        report="$(mktemp)"
+        args+=(--markdown-report "$report")
+        status=0
+        mcp-eval-gate "${args[@]}" || status=$?
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ] && [ -f "$report" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
+        exit "$status"

@@ -5,11 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from mcp_eval_gate.normalize import Normalizer
+
 
 class MatchType(StrEnum):
     EXACT = "exact"
     CONTAINS = "contains"
     JUDGE = "judge"
+    SNAPSHOT = "snapshot"
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,8 @@ class GoldenCase:
     judge_criteria: str | None = None
     min_judge_score: float = 0.8
     timeout_seconds: float = 30.0
+    expect_error: bool = False
+    normalize: tuple[Normalizer, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -51,6 +56,7 @@ class CaseResult:
     score: float
     passed: bool
     detail: str
+    outcome: ToolCallOutcome | None = None
 
 
 @dataclass(frozen=True)
@@ -66,3 +72,5 @@ class GoldenSetConfig:
     server: ServerTarget
     cases: tuple[GoldenCase, ...]
     judge_model: str = "claude-sonnet-4-5"
+    normalize: tuple[Normalizer, ...] = ()
+    contract_ignore: tuple[str, ...] = ()

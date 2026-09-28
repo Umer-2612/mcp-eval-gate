@@ -1,0 +1,111 @@
+{
+  "cases": {
+    "echo": {
+      "outcome": {
+        "is_error": false,
+        "structured": {
+          "result": "goodbye"
+        },
+        "text": "goodbye"
+      },
+      "score": 1.0
+    },
+    "echo-contains": {
+      "outcome": {
+        "is_error": false,
+        "structured": {
+          "result": "hello world"
+        },
+        "text": "hello world"
+      },
+      "score": 1.0
+    }
+  },
+  "contract": {
+    "capabilities": {
+      "experimental": {},
+      "prompts": {
+        "listChanged": false
+      },
+      "resources": {
+        "listChanged": false,
+        "subscribe": false
+      },
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "protocolVersion": "2025-11-25",
+    "serverInfo": {
+      "name": "stdio-test-server",
+      "version": ""
+    },
+    "toolOrder": [
+      "echo",
+      "slow"
+    ],
+    "tools": {
+      "echo": {
+        "description": "Echo the message back.",
+        "inputSchema": {
+          "properties": {
+            "message": {
+              "title": "Message",
+              "type": "string"
+            }
+          },
+          "required": [
+            "message"
+          ],
+          "title": "echoArguments",
+          "type": "object"
+        },
+        "name": "echo",
+        "outputSchema": {
+          "properties": {
+            "result": {
+              "title": "Result",
+              "type": "string"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "title": "echoOutput",
+          "type": "object"
+        }
+      },
+      "slow": {
+        "description": "Sleep, then return.",
+        "inputSchema": {
+          "properties": {
+            "seconds": {
+              "title": "Seconds",
+              "type": "number"
+            }
+          },
+          "required": [
+            "seconds"
+          ],
+          "title": "slowArguments",
+          "type": "object"
+        },
+        "name": "slow",
+        "outputSchema": {
+          "properties": {
+            "result": {
+              "title": "Result",
+              "type": "string"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "title": "slowOutput",
+          "type": "object"
+        }
+      }
+    }
+  },
+  "version": 2
+}

@@ -1,0 +1,16 @@
+# Used by the CI job that runs this repository's own GitHub Action against a real stdio server.
+server:
+  command: python
+  args: ["tests/fixtures/stdio_test_server.py"]
+
+cases:
+  - id: echo
+    tool_name: echo
+    tool_args: {message: hello}
+    match_type: snapshot
+
+  - id: echo-contains
+    tool_name: echo
+    tool_args: {message: hello world}
+    match_type: contains
+    expected_output: "hello"
